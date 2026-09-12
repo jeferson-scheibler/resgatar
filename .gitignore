@@ -1,6 +1,3 @@
-# Configuração local da ferramenta de desenvolvimento
-.claude/
-
 # Imagens soltas do conjunto de detecção: os ZIPs versionados já contêm as mesmas
 # imagens, e scripts/build_detection_dataset.py regenera as pastas quando preciso.
 dataset-deteccao/pessoa/
