@@ -10,3 +10,6 @@ dataset-deteccao/sem_pessoa/
 __pycache__/
 *.pyc
 node_modules/
+
+# Arquivos originais das bases de terceiros, baixados pelos scripts sob demanda
+dados-brutos/

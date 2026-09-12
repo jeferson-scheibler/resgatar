@@ -19,10 +19,13 @@ from pathlib import Path
 
 from PIL import Image, ImageStat
 
-SCRATCH = Path(r"C:\Users\jefer\AppData\Local\Temp\claude\C--Users-jefer-ResgatAr\f00b77f9-d6a7-4987-b3cf-804cf0e37af2\scratchpad")
-ZIP_PATH = SCRATCH / "sar-bari.zip"
-WORK = SCRATCH / "sar_mountains"
-OUT = Path(r"C:\Users\jefer\ResgatAr\dataset-deteccao")
+RAIZ = Path(__file__).resolve().parent.parent
+BRUTOS = RAIZ / "dados-brutos"
+ZIP_PATH = BRUTOS / "uav-search-and-rescue-v1.0.zip"
+WORK = BRUTOS / "sar_mountains"
+OUT = RAIZ / "dataset-deteccao"
+
+FONTE_URL = "https://zenodo.org/api/records/3924925/files/gvessio/uav-search-and-rescue-v1.0.zip/content"
 
 INNER = "gvessio-uav-search-and-rescue-8961f73/dataset/mountains"
 TILE = 224
@@ -30,6 +33,18 @@ CONTEXT = 2.6      # quantas vezes o lado da caixa vira o lado do recorte
 MIN_CROP_PX = 48   # evita recortes minusculos que viram borrao ao ampliar
 
 random.seed(11)
+
+
+def baixar_fonte():
+    """Baixa o arquivo original do Zenodo, se ainda nao estiver em dados-brutos/."""
+    if ZIP_PATH.exists():
+        print(f"fonte ja presente: {ZIP_PATH.name}")
+        return
+    import urllib.request
+    BRUTOS.mkdir(parents=True, exist_ok=True)
+    print(f"baixando {ZIP_PATH.name} do Zenodo (139 MB)...")
+    urllib.request.urlretrieve(FONTE_URL, ZIP_PATH)
+    print("download concluido")
 
 
 def extract():
@@ -213,5 +228,6 @@ def build():
 
 
 if __name__ == "__main__":
+    baixar_fonte()
     extract()
     build()

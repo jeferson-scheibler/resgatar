@@ -21,8 +21,24 @@ from pathlib import Path
 
 import numpy as np
 
-SCRATCH = Path(r"C:\Users\jefer\AppData\Local\Temp\claude\C--Users-jefer-ResgatAr\f00b77f9-d6a7-4987-b3cf-804cf0e37af2\scratchpad")
-ZIP_PATH = SCRATCH / "uavg_json.zip"
+RAIZ = Path(__file__).resolve().parent.parent
+BRUTOS = RAIZ / "dados-brutos"
+ZIP_PATH = BRUTOS / "joint_positions_json.zip"
+
+# As anotacoes de articulacoes sao de acesso aberto. Os videos da mesma base exigem
+# pedido aos autores e nao sao usados aqui.
+FONTE_URL = "https://asankagp.github.io/uavgesture/joint_positions_json.zip"
+
+
+def baixar_fonte():
+    if ZIP_PATH.exists():
+        print(f"fonte ja presente: {ZIP_PATH.name}")
+        return
+    import urllib.request
+    BRUTOS.mkdir(parents=True, exist_ok=True)
+    print(f"baixando {ZIP_PATH.name} (22 MB)...")
+    urllib.request.urlretrieve(FONTE_URL, ZIP_PATH)
+    print("download concluido")
 
 # OpenPose COCO-18
 NOSE, NECK = 0, 1
@@ -193,4 +209,5 @@ def main():
 
 
 if __name__ == "__main__":
+    baixar_fonte()
     main()
