@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ResgatAr: Protótipo de Busca e Resgate por Reconhecimento de Gestos</title>
+<link rel="icon" type="image/png" href="favicon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<header class="app-header">
+  <div class="topo-layer" aria-hidden="true" title="Relevo real (SRTM / Open-Elevation), Vale do Taquari, RS"></div>
+  <div class="header-inner">
+    <div class="brand">
+      <h1 class="brand-h1"><img class="brand-lockup" src="logo-horizontal-white.png" alt="ResgatAr" /></h1>
+    </div>
+    <div class="header-right">
+      <div class="coord-readout">18°30'S&nbsp;52°00'W</div>
+    </div>
+  </div>
+</header>
+
+<section class="flow-strip" id="flowStrip">
+  <div class="flow-step" data-stage="ambiente">
+    <span class="flow-num">1</span>
+    <span class="flow-label">Usuário / Ambiente</span>
+  </div>
+  <div class="flow-step" data-stage="sensor">
+    <span class="flow-num">2</span>
+    <span class="flow-label">Sensor (câmera)</span>
+  </div>
+  <div class="flow-step" data-stage="processamento">
+    <span class="flow-num">3</span>
+    <span class="flow-label">Processamento (TinyML)</span>
+  </div>
+  <div class="flow-step" data-stage="atuador">
+    <span class="flow-num">4</span>
+    <span class="flow-label">Atuador (drone)</span>
+  </div>
+  <div class="flow-step" data-stage="feedback">
+    <span class="flow-num">5</span>
+    <span class="flow-label">Feedback (base)</span>
+  </div>
+</section>
+
+<main class="grid">
+
+  <!-- COLUNA 1: SENSOR + PROCESSAMENTO -->
+  <div class="col">
+    <section class="panel" id="panelSensor">
+      <h2>1, 2. Sensor: câmera de bordo</h2>
+
+      <div class="video-wrap">
+        <video id="webcam" autoplay playsinline muted></video>
+        <div class="video-overlay" id="videoOverlay">Câmera desligada</div>
+        <div class="sustain-ring" aria-hidden="true">
+          <svg viewBox="0 0 60 60">
+            <circle class="ring-track" cx="30" cy="30" r="26" />
+            <circle class="ring-fill" id="sustainRing" cx="30" cy="30" r="26" />
+          </svg>
+          <span class="ring-label">confirmando</span>
+        </div>
+      </div>
+
+      <div class="controls-row">
+        <button id="btnCamera" class="btn">Ligar câmera</button>
+        <button id="btnSimulateCandidate" class="btn btn-warn" disabled>Simular candidato</button>
+        <button id="btnSimulateGesture" class="btn btn-warn" disabled>Simular gesto</button>
+      </div>
+
+      <p class="hint">A operação tem dois estágios: na altura de varredura o sistema procura <strong>pessoas</strong>; ao confirmar um candidato o drone desce e só então classifica o <strong>gesto</strong>. Os botões de simulação percorrem o mesmo fluxo sem modelo carregado.</p>
+
+      <details class="model-loader">
+        <summary>Modelos do Teachable Machine (um por estágio)</summary>
+
+        <div class="loader-block">
+          <label>Estágio 1: detecção de pessoa (vista aérea)</label>
+          <div class="controls-row">
+            <input id="urlDeteccao" type="text" placeholder="https://teachablemachine.withgoogle.com/models/XXXXXXXXX/" />
+            <button id="btnUrlDeteccao" class="btn">Link</button>
+          </div>
+          <div class="controls-row files-row">
+            <label class="file-label">model.json, weights.bin e metadata.json<input id="filesDeteccao" type="file" accept=".json,.bin" multiple /></label>
+            <button id="btnFilesDeteccao" class="btn">Arquivos</button>
+          </div>
+          <p class="hint" id="statusDeteccao">Não carregado. Treine com o conteúdo de dataset-deteccao.</p>
+        </div>
+
+        <div class="loader-block">
+          <label>Estágio 2: gesto de socorro (após a descida)</label>
+          <p class="hint gesture-spec">Gesto adotado: <strong>braços estendidos na horizontal, formando um T</strong>. Escolhido por medição sobre 13 gestos aéreos reais da base UAV-GESTURE, por ter a maior abertura vista de cima, a maior distância da postura de repouso e a melhor estabilidade. Detalhes em ESCOLHA-DO-GESTO.md.</p>
+          <div class="controls-row">
+            <input id="urlGesto" type="text" placeholder="https://teachablemachine.withgoogle.com/models/XXXXXXXXX/" />
+            <button id="btnUrlGesto" class="btn">Link</button>
+          </div>
+          <div class="controls-row files-row">
+            <label class="file-label">model.json, weights.bin e metadata.json<input id="filesGesto" type="file" accept=".json,.bin" multiple /></label>
+            <button id="btnFilesGesto" class="btn">Arquivos</button>
+          </div>
+          <p class="hint" id="statusGesto">Não carregado.</p>
+        </div>
+      </details>
+    </section>
+
+    <section class="panel" id="panelProcessing">
+      <h2>3. Processamento: inferência TinyML</h2>
+
+      <div class="pipeline-bar">
+        <div class="pipeline-state"><span class="label">Estado</span><span id="pipelineState">aguardando modelo</span></div>
+        <div class="pipeline-metric"><span class="label">Inferência</span><span id="infFps">0.0</span></div>
+        <div class="pipeline-metric"><span class="label">Latência</span><span id="infLatency">0 ms</span></div>
+      </div>
+
+      <div class="stage-label" id="predictionsStage">estágio 1: detecção de pessoa</div>
+      <div class="predictions" id="predictions"></div>
+
+      <div class="threshold-row">
+        <label for="threshold">Confiança mínima: <span id="thresholdValue">85%</span></label>
+        <input id="threshold" type="range" min="50" max="99" value="85" />
+        <label for="sustain">Tempo de confirmação: <span id="sustainValue">1.5s</span></label>
+        <input id="sustain" type="range" min="3" max="30" value="15" />
+      </div>
+
+      <h3 class="sub-head">Eventos de detecção</h3>
+      <ul class="detection-log" id="detectionLog">
+        <li class="empty-state">Sem eventos de detecção.</li>
+      </ul>
+    </section>
+  </div>
+
+  <!-- COLUNA 2: ATUADOR -->
+  <section class="panel col-mission" id="panelDrone">
+    <h2>4. Atuador: missão do drone</h2>
+
+    <canvas id="mapCanvas" width="720" height="624"></canvas>
+
+    <div class="telemetry">
+      <div><span class="label">Estado</span><span id="droneState">parado</span></div>
+      <div><span class="label">Posição</span><span id="dronePos">N/D</span></div>
+      <div><span class="label">Solo</span><span id="droneGround">N/D</span></div>
+      <div><span class="label">Altura (AGL)</span><span id="droneAgl">100 m</span></div>
+      <div><span class="label">Gesto na imagem</span><span id="droneGesturePx">18 px</span></div>
+      <div><span class="label">Bateria</span><span id="droneBattery">100%</span></div>
+      <div><span class="label">Cobertura da área</span><span id="droneCoverage">0%</span></div>
+      <div><span class="label">Tempo</span><span id="missionTime">00:00</span></div>
+    </div>
+
+    <p class="hint" id="routeInfo"></p>
+    <p class="hint" id="terrainNote" hidden>Área fora da região com relevo mapeado: varredura em zigue-zague genérico e altura acima do solo indisponível.</p>
+
+    <div class="controls-row">
+      <button id="btnStartMission" class="btn btn-primary">Iniciar missão</button>
+      <button id="btnPauseMission" class="btn" disabled>Pausar</button>
+      <button id="btnResumeSearch" class="btn" disabled>Retomar varredura</button>
+      <button id="btnExportReport" class="btn" disabled>Exportar relatório</button>
+      <label class="sim-speed">Tempo simulado
+        <select id="simSpeed">
+          <option value="1">1x (tempo real)</option>
+          <option value="10" selected>10x</option>
+          <option value="60">60x</option>
+        </select>
+      </label>
+    </div>
+
+    <details class="geofence-config">
+      <summary>Configurar cercamento eletrônico (coordenadas)</summary>
+      <div class="controls-row">
+        <label>Canto NO<input id="cornerNW" type="text" value="-29.3300, -52.0100" /></label>
+        <label>Canto SE<input id="cornerSE" type="text" value="-29.3450, -51.9900" /></label>
+        <button id="btnApplyGeofence" class="btn">Aplicar</button>
+      </div>
+      <p class="hint">Coordenadas ilustrativas (região de Lajeado/RS), delimitando a área de busca antes da decolagem, conforme exige a legislação de operação de drones. Com as coordenadas padrão, a elevação real (SRTM) ordena as faixas por probabilidade: vales e encostas suaves, onde a pessoa perdida provavelmente está, são varridos primeiro.</p>
+    </details>
+  </section>
+
+  <!-- COLUNA 3: FEEDBACK -->
+  <section class="panel col-feedback" id="panelAlerts">
+    <h2>5. Feedback: base de resgate</h2>
+    <p class="hint">Alertas recebidos quando o sistema confirma um gesto de socorro. Clique na miniatura para ampliar.</p>
+    <ul class="alert-log" id="alertLog">
+      <li class="empty-state">Nenhum alerta recebido ainda.</li>
+    </ul>
+  </section>
+
+</main>
+
+<footer class="app-footer">
+  <details>
+    <summary>Sobre este protótipo (papel do TinyML e das plataformas usadas)</summary>
+    <p>
+      Este protótipo simula, em navegador, a arquitetura descrita no relatório técnico do ResgatAr: um drone
+      (referência real: <strong>ESP-Drone</strong>, ESP32) realiza varredura autônoma dentro de um cercamento eletrônico
+      e usa um modelo de reconhecimento de gestos treinado com poucos exemplos para identificar um pedido de socorro.
+    </p>
+    <p>
+      Aqui, a câmera de bordo é simulada pela webcam do operador, e o modelo embarcado (TinyML) é substituído por um
+      modelo de imagem treinado no <strong>Teachable Machine</strong> (Google), exportado em TensorFlow.js e executado
+      localmente no navegador. Esse é o mesmo princípio de inferência leve e de baixa latência que rodaria embarcado no
+      microcontrolador do drone. O relevo da área de busca usa elevação real (SRTM, via Open-Elevation). A varredura
+      é paralela, padrão IAMSAR para cobertura de área, com espaçamento definido pela faixa que a câmera enxerga no
+      solo e voo com seguimento de terreno. O relevo define a ordem das faixas, priorizando vales e encostas suaves,
+      conforme o perfil de comportamento de pessoa perdida discutido em Ewers et al. (2023).
+    </p>
+  </details>
+</footer>
+
+<div class="shot-modal" id="shotModal" hidden>
+  <div class="shot-modal-inner">
+    <img id="shotModalImg" alt="Quadro capturado no momento da detecção" />
+    <p class="shot-modal-meta" id="shotModalMeta"></p>
+    <button class="btn" id="shotModalClose">Fechar</button>
+  </div>
+</div>
+
+<canvas id="snapshotCanvas" hidden></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js" integrity="sha384-LBtUZzDp17Y7UgB/KFromf1LnY7o5ls8Oxm4vEAoTM0U+JzaadctX2/buQiNHyQU" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js" integrity="sha384-4Q4fzaRr/bPyBiOertaWuZ8Zn987vAWqtNLbL6h+tf/Y+flpirtyqFTd7q9ELxjS" crossorigin="anonymous"></script>
+<script src="terrain.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
