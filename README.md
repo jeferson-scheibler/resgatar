@@ -123,7 +123,6 @@ scripts/
   build_detection_dataset.py    monta as classes do estágio 1
   analyze_uav_gestures.py       mede os 13 gestos e escolhe o de socorro
 ESCOLHA-DO-GESTO.md             método e resultado da escolha do gesto
-Relatorio_Tecnico_ResgatAr.docx relatório técnico
 ```
 
 Os três scripts reproduzem os dados a partir das fontes originais, então a procedência é
