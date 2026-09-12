@@ -110,6 +110,7 @@ const state = {
 const els = {};
 [
   "webcam", "videoOverlay", "btnCamera", "btnSimulateCandidate", "btnSimulateGesture",
+  "cameraSource", "cameraSourceRow",
   "urlDeteccao", "btnUrlDeteccao", "filesDeteccao", "btnFilesDeteccao", "statusDeteccao",
   "urlGesto", "btnUrlGesto", "filesGesto", "btnFilesGesto", "statusGesto",
   "predictions", "predictionsStage",
@@ -1098,10 +1099,43 @@ function openSnapshot(a) {
 }
 
 // ---------- Câmera e modelo ----------
+// A fonte pode ser a webcam interna ou a imagem do drone entrando por um capturador
+// HDMI, que o navegador enxerga como mais um dispositivo de vídeo.
+async function startStream(deviceId) {
+  if (state.webcamStream) {
+    state.webcamStream.getTracks().forEach((t) => t.stop());
+  }
+  const video = deviceId
+    ? { deviceId: { exact: deviceId }, width: { ideal: 640 }, height: { ideal: 480 } }
+    : { width: { ideal: 640 }, height: { ideal: 480 } };
+  state.webcamStream = await navigator.mediaDevices.getUserMedia({ video });
+  els.webcam.srcObject = state.webcamStream;
+}
+
+async function listCameras() {
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const cams = devices.filter((d) => d.kind === "videoinput");
+  if (cams.length < 1) return;
+
+  const atual = state.webcamStream && state.webcamStream.getVideoTracks()[0];
+  const atualId = atual && atual.getSettings ? atual.getSettings().deviceId : null;
+
+  els.cameraSource.innerHTML = "";
+  cams.forEach((c, i) => {
+    const opt = document.createElement("option");
+    opt.value = c.deviceId;
+    // o rótulo só vem preenchido depois que a permissão é concedida
+    opt.textContent = c.label || `Dispositivo de vídeo ${i + 1}`;
+    els.cameraSource.appendChild(opt);
+  });
+  if (atualId) els.cameraSource.value = atualId;
+  els.cameraSourceRow.hidden = cams.length < 2;
+}
+
 async function enableCamera() {
   try {
-    state.webcamStream = await navigator.mediaDevices.getUserMedia({ video: { width: 480, height: 360 } });
-    els.webcam.srcObject = state.webcamStream;
+    await startStream(null);
+    await listCameras();
     els.videoOverlay.hidden = true;
     els.btnCamera.textContent = "Câmera ligada";
     els.btnCamera.disabled = true;
@@ -1110,6 +1144,16 @@ async function enableCamera() {
     updatePipelineState();
   } catch (e) {
     els.videoOverlay.textContent = "Câmera indisponível (permissão negada ou sem dispositivo)";
+  }
+}
+
+async function switchCamera(deviceId) {
+  try {
+    await startStream(deviceId);
+    const nome = els.cameraSource.selectedOptions[0];
+    logDetection("info", `fonte de vídeo alterada para ${nome ? nome.textContent : "outro dispositivo"}`);
+  } catch (e) {
+    logDetection("reject", "não foi possível abrir essa fonte de vídeo");
   }
 }
 
@@ -1332,6 +1376,13 @@ function exportMissionReport() {
 
 // ---------- Eventos ----------
 els.btnCamera.addEventListener("click", enableCamera);
+
+els.cameraSource.addEventListener("change", () => switchCamera(els.cameraSource.value));
+
+// um capturador pode ser conectado depois que a câmera já está ligada
+navigator.mediaDevices.addEventListener("devicechange", () => {
+  if (state.webcamStream) listCameras();
+});
 
 els.btnSimulateGesture.addEventListener("click", () => {
   if (state.mission.droneState !== "inspecting") {

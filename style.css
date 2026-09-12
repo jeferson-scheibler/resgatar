@@ -351,6 +351,28 @@ input[type="text"]:focus { outline: none; border-color: var(--orange); }
   color: var(--orange);
 }
 
+.camera-source {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.camera-source select {
+  flex: 1;
+  min-width: 0;
+  background: var(--ink);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 5px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
 .gesture-spec {
   border-left: 2px solid var(--orange);
   padding-left: 9px;

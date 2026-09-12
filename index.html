@@ -72,6 +72,11 @@
         <button id="btnSimulateGesture" class="btn btn-warn" disabled>Simular gesto</button>
       </div>
 
+      <div class="camera-source" id="cameraSourceRow" hidden>
+        <label for="cameraSource">Fonte de vídeo</label>
+        <select id="cameraSource"></select>
+      </div>
+
       <p class="hint">A operação tem dois estágios: na altura de varredura o sistema procura <strong>pessoas</strong>; ao confirmar um candidato o drone desce e só então classifica o <strong>gesto</strong>. Os botões de simulação percorrem o mesmo fluxo sem modelo carregado.</p>
 
       <details class="model-loader">
