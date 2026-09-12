@@ -73,6 +73,7 @@ const state = {
     gesto: { model: null, labels: [], count: 0, targetIndex: 0 },
   },
   webcamStream: null,
+  streamPc: null,
 
   simSpeed: 10, // multiplica o tempo da simulação de voo, nunca o da detecção
 
@@ -110,7 +111,7 @@ const state = {
 const els = {};
 [
   "webcam", "videoOverlay", "btnCamera", "btnSimulateCandidate", "btnSimulateGesture",
-  "cameraSource", "cameraSourceRow",
+  "cameraSource", "cameraSourceRow", "streamUrl", "btnStream", "streamStatus",
   "urlDeteccao", "btnUrlDeteccao", "filesDeteccao", "btnFilesDeteccao", "statusDeteccao",
   "urlGesto", "btnUrlGesto", "filesGesto", "btnFilesGesto", "statusGesto",
   "predictions", "predictionsStage",
@@ -1102,9 +1103,7 @@ function openSnapshot(a) {
 // A fonte pode ser a webcam interna ou a imagem do drone entrando por um capturador
 // HDMI, que o navegador enxerga como mais um dispositivo de vídeo.
 async function startStream(deviceId) {
-  if (state.webcamStream) {
-    state.webcamStream.getTracks().forEach((t) => t.stop());
-  }
+  stopSources();
   const video = deviceId
     ? { deviceId: { exact: deviceId }, width: { ideal: 640 }, height: { ideal: 480 } }
     : { width: { ideal: 640 }, height: { ideal: 480 } };
@@ -1144,6 +1143,67 @@ async function enableCamera() {
     updatePipelineState();
   } catch (e) {
     els.videoOverlay.textContent = "Câmera indisponível (permissão negada ou sem dispositivo)";
+  }
+}
+
+// Recebe a imagem de bordo por WebRTC, no padrão WHEP: envia uma oferta SDP ao servidor
+// local que está recebendo o RTMP do DJI Fly e recebe a resposta. O elemento de vídeo passa
+// a exibir a transmissão, e a inferência segue igual, porque o modelo classifica o elemento.
+async function connectStream(url) {
+  els.streamStatus.textContent = "Conectando...";
+  stopSources();
+
+  const pc = new RTCPeerConnection({ iceServers: [] });
+  state.streamPc = pc;
+  pc.addTransceiver("video", { direction: "recvonly" });
+
+  pc.addEventListener("track", (ev) => {
+    els.webcam.srcObject = ev.streams[0];
+    els.videoOverlay.hidden = true;
+  });
+
+  pc.addEventListener("connectionstatechange", () => {
+    if (pc !== state.streamPc) return;
+    if (pc.connectionState === "connected") {
+      els.streamStatus.textContent = "Transmissão do drone conectada.";
+      logDetection("info", "fonte de vídeo: transmissão do drone");
+    } else if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
+      els.streamStatus.textContent = "Conexão perdida.";
+    }
+  });
+
+  await pc.setLocalDescription(await pc.createOffer());
+  // sem trickle: espera reunir os candidatos antes de enviar a oferta
+  await new Promise((resolve) => {
+    if (pc.iceGatheringState === "complete") return resolve();
+    const t = setTimeout(resolve, 2500);
+    pc.addEventListener("icegatheringstatechange", () => {
+      if (pc.iceGatheringState === "complete") { clearTimeout(t); resolve(); }
+    });
+  });
+
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/sdp" },
+    body: pc.localDescription.sdp,
+  });
+  if (!resp.ok) throw new Error(`servidor respondeu ${resp.status}`);
+  await pc.setRemoteDescription({ type: "answer", sdp: await resp.text() });
+
+  els.btnCamera.disabled = true;
+  setActiveFlow("sensor");
+  startPredictionLoop();
+  updatePipelineState();
+}
+
+function stopSources() {
+  if (state.webcamStream) {
+    state.webcamStream.getTracks().forEach((t) => t.stop());
+    state.webcamStream = null;
+  }
+  if (state.streamPc) {
+    state.streamPc.close();
+    state.streamPc = null;
   }
 }
 
@@ -1378,6 +1438,14 @@ function exportMissionReport() {
 els.btnCamera.addEventListener("click", enableCamera);
 
 els.cameraSource.addEventListener("change", () => switchCamera(els.cameraSource.value));
+
+els.btnStream.addEventListener("click", async () => {
+  try {
+    await connectStream(els.streamUrl.value.trim());
+  } catch (e) {
+    els.streamStatus.textContent = `Falha ao conectar: ${e.message}. Confira se o servidor local está no ar e recebendo o RTMP.`;
+  }
+});
 
 // um capturador pode ser conectado depois que a câmera já está ligada
 navigator.mediaDevices.addEventListener("devicechange", () => {
