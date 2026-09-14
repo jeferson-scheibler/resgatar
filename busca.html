@@ -10,21 +10,28 @@
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="style.css" />
 <style>
+  html, body { height: 100%; }
+  body { overflow: hidden; }
+  .busca-header .header-inner { padding: 12px 24px; }
+  .busca-header .brand-lockup { height: 34px; }
+
   .busca-main {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 20px 16px 40px;
+    height: calc(100vh - 62px);
+    box-sizing: border-box;
+    padding: 14px 24px 16px;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 320px;
-    gap: 18px;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 16px;
+    min-height: 0;
   }
-  @media (max-width: 860px) { .busca-main { grid-template-columns: 1fr; } }
+  .busca-left { display: flex; flex-direction: column; min-height: 0; gap: 10px; }
 
   .busca-video {
     position: relative;
     background: #000;
     border: 1px solid var(--border);
-    aspect-ratio: 16 / 9;
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
   }
   .busca-video video { width: 100%; height: 100%; object-fit: contain; display: block; }
@@ -41,47 +48,87 @@
     display: flex; align-items: center; justify-content: center;
     color: var(--text-dim); font-family: var(--font-mono); font-size: 12px;
     text-transform: uppercase; letter-spacing: 0.05em; background: rgba(0, 0, 0, 0.55);
-    text-align: center; padding: 0 16px;
+    text-align: center; padding: 0 16px; cursor: pointer;
   }
   .busca-video .aviso[hidden] { display: none; }
 
-  .passo { margin-bottom: 14px; }
-  .passo label {
-    display: block; font-family: var(--font-mono); font-size: 11px; text-transform: uppercase;
-    letter-spacing: 0.06em; color: var(--text-dim); margin-bottom: 6px;
+  .busca-left .hint { margin: 0; flex: none; }
+  .registro {
+    flex: none;
+    height: 118px;
+    overflow-y: auto;
+    font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); line-height: 1.6;
+    border: 1px solid var(--border); background: var(--panel); padding: 6px 10px;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
   }
-  .passo input[type="text"] { width: 100%; box-sizing: border-box; }
-  .status { font-family: var(--font-mono); font-size: 12px; color: var(--stone); margin-top: 6px; min-height: 16px; }
+  .registro::-webkit-scrollbar { width: 6px; }
+  .registro::-webkit-scrollbar-track { background: transparent; }
+  .registro::-webkit-scrollbar-thumb { background: var(--border); }
+  .registro::-webkit-scrollbar-thumb:hover { background: var(--stone); }
+  .registro b { color: var(--orange); font-weight: 500; }
+
+  .busca-right { display: flex; flex-direction: column; min-height: 0; gap: 10px; }
 
   .estado {
-    font-family: var(--font-display); font-size: 30px; text-transform: uppercase; letter-spacing: 0.04em;
-    padding: 14px 16px; border: 1px solid var(--border); background: var(--panel-2); margin-bottom: 14px;
+    flex: none;
+    font-family: var(--font-display); font-size: 26px; text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 10px 14px; border: 1px solid var(--border); background: var(--panel-2);
   }
   .estado[data-modo="aguardando"] { color: var(--text-dim); }
   .estado[data-modo="procurando"] { color: var(--paper); border-color: var(--stone); }
   .estado[data-modo="confirmando"] { color: var(--orange); border-color: var(--orange); }
   .estado[data-modo="localizado"] { color: var(--ink); background: var(--orange); border-color: var(--orange); }
-  .estado small { display: block; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em; opacity: 0.8; margin-top: 4px; }
+  .estado small { display: block; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.05em; opacity: 0.8; margin-top: 2px; text-transform: none; }
 
-  .barra { height: 8px; background: var(--panel-2); border: 1px solid var(--border); margin: 6px 0 4px; }
+  .passo { flex: none; }
+  .passo > label {
+    display: block; font-family: var(--font-mono); font-size: 10.5px; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--text-dim); margin-bottom: 5px;
+  }
+  .linha { display: flex; gap: 8px; align-items: center; }
+  .linha input[type="text"] { flex: 1; min-width: 0; }
+  .linha .btn { flex: none; padding: 8px 12px; }
+  .status { font-family: var(--font-mono); font-size: 11px; color: var(--stone); margin-top: 4px; min-height: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* o input de arquivo nativo fica escondido: o botão é um label estilizado */
+  .arquivo-btn { position: relative; overflow: hidden; }
+  .arquivo-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .arquivo-nome { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 11px; color: var(--stone); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .passo input[type="range"] { width: 100%; accent-color: var(--orange); margin: 4px 0 0; }
+
+  .barra { height: 8px; background: var(--panel-2); border: 1px solid var(--border); margin: 8px 0 4px; }
   .barra > i { display: block; height: 100%; width: 0; background: var(--orange); transition: width 0.12s linear; }
 
-  .resultado { display: none; margin-top: 14px; border: 1px solid var(--orange); padding: 12px; }
-  .resultado.ativo { display: block; }
-  .resultado img { width: 100%; display: block; border: 1px solid var(--border); image-rendering: auto; }
-  .resultado dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 10px 0 0; font-size: 12px; }
-  .resultado dt { color: var(--text-dim); font-family: var(--font-mono); text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; }
-  .resultado dd { margin: 0; font-family: var(--font-mono); color: var(--paper); }
+  .resultado {
+    flex: 1; min-height: 0;
+    border: 1px solid var(--border); padding: 10px;
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px;
+    align-items: start;
+  }
+  .resultado.ativo { border-color: var(--orange); }
+  .resultado .vazio { grid-column: 1 / -1; font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+  .resultado.ativo .vazio { display: none; }
+  .resultado img { display: none; width: 100%; aspect-ratio: 1; object-fit: cover; border: 1px solid var(--border); }
+  .resultado dl { display: none; margin: 0; font-size: 12px; }
+  .resultado.ativo img, .resultado.ativo dl { display: block; }
+  .resultado dt { color: var(--text-dim); font-family: var(--font-mono); text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; margin-top: 6px; }
+  .resultado dt:first-child { margin-top: 0; }
+  .resultado dd { margin: 0; font-family: var(--font-mono); color: var(--paper); font-size: 11.5px; }
 
-  .registro { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); margin-top: 14px; max-height: 180px; overflow: auto; line-height: 1.6; }
-  .registro b { color: var(--orange); font-weight: 500; }
   .voltar { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); text-decoration: none; letter-spacing: 0.05em; }
   .voltar:hover { color: var(--orange); }
+
+  @media (max-width: 900px), (max-height: 600px) {
+    body { overflow: auto; }
+    .busca-main { height: auto; grid-template-columns: 1fr; }
+    .busca-video { aspect-ratio: 16 / 9; flex: none; }
+  }
 </style>
 </head>
 <body>
 
-<header class="app-header">
+<header class="app-header busca-header">
   <div class="topo-layer" aria-hidden="true"></div>
   <div class="header-inner">
     <div class="brand">
@@ -94,7 +141,7 @@
 </header>
 
 <main class="busca-main">
-  <section>
+  <section class="busca-left">
     <div class="busca-video">
       <video id="video" playsinline muted loop></video>
       <div class="janela" id="janela" hidden></div>
@@ -104,33 +151,34 @@
     <div class="registro" id="registro"></div>
   </section>
 
-  <aside>
+  <aside class="busca-right">
     <div class="estado" data-modo="aguardando" id="estado">Aguardando<small id="estadoDetalhe">modelo e vídeo</small></div>
 
     <div class="passo">
       <label for="link">1. Link do modelo (Teachable Machine)</label>
-      <input id="link" type="text" placeholder="https://teachablemachine.withgoogle.com/models/XXXXXXXXX/" />
-      <div class="controls-row" style="margin-top:6px">
-        <button id="btnCarregar" class="btn">Carregar modelo</button>
+      <div class="linha">
+        <input id="link" type="text" placeholder="https://teachablemachine.withgoogle.com/models/XXXXXXXXX/" />
+        <button id="btnCarregar" class="btn">Carregar</button>
       </div>
       <div class="status" id="statusModelo">Não carregado.</div>
     </div>
 
     <div class="passo">
-      <label for="arquivo">2. Vídeo do voo</label>
-      <input id="arquivo" type="file" accept="video/*" />
-      <div class="status" id="statusVideo">Nenhum vídeo.</div>
+      <label>2. Vídeo do voo</label>
+      <div class="linha">
+        <label class="btn arquivo-btn">Escolher vídeo<input id="arquivo" type="file" accept="video/*" /></label>
+        <span class="arquivo-nome" id="statusVideo">Nenhum vídeo.</span>
+      </div>
     </div>
 
     <div class="passo">
-      <label for="tamanho">Tamanho da janela (fração da largura)</label>
-      <input id="tamanho" type="range" min="6" max="40" value="13" style="width:100%" />
-      <div class="status" id="statusTamanho">13% da largura</div>
+      <label for="tamanho">Tamanho da janela: <span id="statusTamanho" style="color:var(--paper)">13% da largura</span></label>
+      <input id="tamanho" type="range" min="6" max="40" value="13" />
     </div>
 
     <div class="passo">
       <label>3. Busca</label>
-      <div class="controls-row">
+      <div class="linha">
         <button id="btnIniciar" class="btn btn-primary" disabled>Iniciar missão</button>
         <button id="btnParar" class="btn" disabled>Parar</button>
       </div>
@@ -139,6 +187,7 @@
     </div>
 
     <div class="resultado" id="resultado">
+      <span class="vazio">O resultado aparece aqui ao localizar</span>
       <img id="resultadoImg" alt="Recorte no momento da localização" />
       <dl>
         <dt>Confiança</dt><dd id="resConf"></dd>
