@@ -92,7 +92,7 @@ const state = {
 
   // Janela de inspeção: centro em fração do quadro (arrastável) e lado em fração da largura.
   // O lado é recalculado pela altura ao iniciar a inspeção e pode ser ajustado à mão.
-  inspectWindow: { cx: 0.5, cy: 0.5, frac: 0.13 },
+  inspectWindow: { cx: 0.5, cy: 0.5, frac: 0.13, follow: true },
   fileUrl: null,
 
   mission: {
@@ -131,7 +131,7 @@ const els = {};
   "cornerNW", "cornerSE", "btnApplyGeofence", "routeInfo", "simSpeed",
   "btnStartMission", "btnPauseMission", "btnResumeSearch", "btnExportReport",
   "alertLog", "flowStrip", "snapshotCanvas", "inferCanvas",
-  "inspectWindow", "inspectRow", "inspectFrac", "inspectInfo", "fileVideo",
+  "inspectWindow", "inspectRow", "inspectFrac", "inspectInfo", "inspectFollow", "fileVideo",
   "shotModal", "shotModalImg", "shotModalMeta", "shotModalClose",
 ].forEach((id) => { els[id] = document.getElementById(id); });
 
@@ -1131,13 +1131,14 @@ function inspectFracFor(aglM) {
 }
 
 // Retângulo do recorte em pixels do vídeo (resolução nativa, não a exibida).
-function inspectCropRect() {
+// dx e dy, em fração do quadro, deslocam o recorte sem mover a janela (sondagem).
+function inspectCropRect(dx = 0, dy = 0) {
   const vw = els.webcam.videoWidth;
   const vh = els.webcam.videoHeight;
   const w = state.inspectWindow;
   const side = Math.min(vh, Math.round(vw * w.frac));
-  const x = Math.round(Math.min(Math.max(w.cx * vw - side / 2, 0), vw - side));
-  const y = Math.round(Math.min(Math.max(w.cy * vh - side / 2, 0), vh - side));
+  const x = Math.round(Math.min(Math.max((w.cx + dx) * vw - side / 2, 0), vw - side));
+  const y = Math.round(Math.min(Math.max((w.cy + dy) * vh - side / 2, 0), vh - side));
   return { x, y, side };
 }
 
@@ -1170,8 +1171,8 @@ function renderInspectWindow() {
 }
 
 // Copia o recorte para o canvas de inferência, que é o que o classificador de gesto recebe.
-function drawInspectCrop() {
-  const r = inspectCropRect();
+function drawInspectCrop(dx = 0, dy = 0) {
+  const r = inspectCropRect(dx, dy);
   const c = els.inferCanvas;
   c.width = 224;
   c.height = 224;
@@ -1294,8 +1295,12 @@ function playVideoFile(file) {
   els.webcam.srcObject = null;
   els.webcam.src = state.fileUrl;
   els.webcam.loop = true;
-  els.webcam.play();
   els.videoOverlay.hidden = true;
+  els.webcam.play().catch(() => {
+    // o navegador pode exigir um gesto do usuário para reproduzir
+    els.videoOverlay.textContent = "Clique aqui para reproduzir o vídeo";
+    els.videoOverlay.hidden = false;
+  });
   els.btnCamera.disabled = true;
   els.streamStatus.textContent = `Reproduzindo ${file.name}.`;
   logDetection("info", `fonte de vídeo: arquivo ${file.name}`);
@@ -1344,7 +1349,11 @@ async function loadModel(stage, loader) {
     slot.model = model;
     slot.count = model.getTotalClasses();
     slot.labels = model.getClassLabels ? model.getClassLabels() : [];
-    const idx = slot.labels.findIndex((l) => STAGE_HINT[stage].test(l));
+    // O alvo é a classe que casa com o nome do estágio e não é uma negação: "sem_socorro"
+    // também contém "socorro", e escolher a errada inverteria a lógica do alerta.
+    const negacao = /^(sem|nao|não|no|not)[\s_-]/i;
+    let idx = slot.labels.findIndex((l) => STAGE_HINT[stage].test(l) && !negacao.test(l));
+    if (idx < 0) idx = slot.labels.findIndex((l) => STAGE_HINT[stage].test(l));
     slot.targetIndex = idx >= 0 ? idx : 0;
     statusEl.textContent =
       `Carregado: ${slot.count} classes, alvo "${slot.labels[slot.targetIndex] || slot.targetIndex}".`;
@@ -1409,16 +1418,51 @@ function startPredictionLoop() {
   state.inference.windowStart = performance.now();
   state.inference.frames = 0;
 
+  let busy = false;
+  let followStep = 0;
   predictionInterval = setInterval(async () => {
     renderPredictionRows();
     const stage = activeStage() || shownStage;
     const slot = state.models[stage];
-    if (!slot || !slot.model || !els.webcam.videoWidth) return;
+    if (!slot || !slot.model || !els.webcam.videoWidth || busy) return;
+    busy = true;
 
     const t0 = performance.now();
-    const input = stage === "gesto" ? drawInspectCrop() : els.webcam;
-    const predictions = await slot.model.predict(input);
+    let predictions;
+    try {
+      const input = stage === "gesto" ? drawInspectCrop() : els.webcam;
+      predictions = await slot.model.predict(input);
+    } catch (e) {
+      busy = false;
+      return;
+    }
     const latency = performance.now() - t0;
+
+    // Acompanhamento: o drone real centraliza o alvo com o gimbal; aqui a janela dá um
+    // passo na direção em que o classificador enxerga mais gesto. Uma sonda por ciclo,
+    // para custar só uma inferência extra, e só quando a vizinha é claramente melhor.
+    if (stage === "gesto" && state.inspectWindow.follow && activeStage() === "gesto") {
+      const w = state.inspectWindow;
+      const aspect = els.webcam.videoWidth / els.webcam.videoHeight;
+      // quatro direções em dois raios (meia janela e uma janela), uma sonda por ciclo
+      const dirs = [
+        [0.5, 0], [0, 0.5 * aspect], [-0.5, 0], [0, -0.5 * aspect],
+        [1, 0], [0, aspect], [-1, 0], [0, -aspect],
+      ];
+      const [dx, dy] = dirs[followStep++ % dirs.length];
+      let there = 0;
+      try {
+        there = (await slot.model.predict(drawInspectCrop(dx * w.frac, dy * w.frac)))[slot.targetIndex].probability;
+      } catch (e) {
+        there = 0;
+      }
+      const here = predictions[slot.targetIndex].probability;
+      if (there > here + 0.15 && there > 0.5) {
+        w.cx = Math.min(1, Math.max(0, w.cx + dx * w.frac));
+        w.cy = Math.min(1, Math.max(0, w.cy + dy * w.frac));
+      }
+    }
+    busy = false;
 
     state.inference.latencyMs = state.inference.latencyMs
       ? state.inference.latencyMs * 0.8 + latency * 0.2
@@ -1512,6 +1556,7 @@ function buildMissionReport() {
   <tr><td>Cercamento eletrônico</td><td>NO ${m.geofence.nw.lat.toFixed(4)}, ${m.geofence.nw.lng.toFixed(4)} / SE ${m.geofence.se.lat.toFixed(4)}, ${m.geofence.se.lng.toFixed(4)}</td></tr>
   <tr><td>Voo</td><td>seguimento de terreno a ${DRONE.searchAglM} m do solo na varredura (teto legal ${DRONE.legalCeilingM} m)</td></tr>
   <tr><td>Faixa da câmera</td><td>${Math.round(swathWidthM(DRONE.searchAglM))} m no solo, espaçamento ${Math.round(trackSpacingM())} m (sobreposição ${Math.round(DRONE.sidelap * 100)}%)</td></tr>
+  <tr><td>Janela do classificador</td><td>${DRONE.inspectFootprintM} m no solo na inspeção, acompanhando o alvo pela confiança do próprio classificador</td></tr>
   <tr><td>Inspeção do candidato</td><td>descida para ${DRONE.inspectAglM} m, onde os braços abertos passam de ${gesturePixels(DRONE.searchAglM).span.toFixed(0)} px para ${gesturePixels(DRONE.inspectAglM).span.toFixed(0)} px</td></tr>
   <tr><td>Velocidade de cruzeiro</td><td>${DRONE.cruiseSpeedMps} m/s</td></tr>
   <tr><td>Limiar de confiança</td><td>${Math.round(state.threshold * 100)}% por ${(state.sustainMs / 1000).toFixed(1)}s contínuos</td></tr>
@@ -1561,6 +1606,12 @@ els.btnStream.addEventListener("click", async () => {
   }
 });
 
+els.videoOverlay.addEventListener("click", () => {
+  if (state.fileUrl && els.webcam.paused) {
+    els.webcam.play().then(() => { els.videoOverlay.hidden = true; }).catch(() => {});
+  }
+});
+
 els.fileVideo.addEventListener("change", () => {
   const f = els.fileVideo.files[0];
   if (f) playVideoFile(f);
@@ -1578,6 +1629,9 @@ els.webcam.parentElement.addEventListener("pointerdown", (ev) => {
   };
   window.addEventListener("pointermove", move);
   window.addEventListener("pointerup", up);
+});
+els.inspectFollow.addEventListener("change", () => {
+  state.inspectWindow.follow = els.inspectFollow.checked;
 });
 els.inspectFrac.addEventListener("input", () => {
   state.inspectWindow.frac = Number(els.inspectFrac.value) / 100;

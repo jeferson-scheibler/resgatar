@@ -118,7 +118,9 @@ mesma janela na inspeção. Procedência, composição dos negativos e viés med
 **Janela de inspeção.** Na inspeção o classificador de gesto não recebe o quadro inteiro:
 recebe um recorte de 6 m no solo (a 25 m, 13% da largura), desenhado sobre o vídeo e
 arrastável para centralizar na pessoa. Sem isso os braços abertos teriam menos de 1 px
-de espessura nos 224x224 do modelo.
+de espessura nos 224x224 do modelo. Com "seguir a pessoa" ligado, a janela sonda uma
+posição vizinha por ciclo e dá um passo para onde o classificador enxerga mais gesto,
+fazendo o papel do gimbal que centraliza o alvo no drone real.
 
 **Demonstração sem voar.** `demo/voo-socorro.mp4` (descida de 33 m a 14 m sobre a pessoa
 em T) e `demo/voo-sem-socorro.mp4` (caminhando, um braço, agachado, deitado) entram na
