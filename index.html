@@ -64,6 +64,16 @@
           </svg>
           <span class="ring-label">confirmando</span>
         </div>
+        <div class="inspect-window" id="inspectWindow" hidden>
+          <span>janela do classificador</span>
+        </div>
+      </div>
+
+      <div class="inspect-row" id="inspectRow" hidden>
+        <label for="inspectFrac">Janela de inspeção</label>
+        <input id="inspectFrac" type="range" min="5" max="100" value="13" />
+        <span id="inspectInfo" class="mono"></span>
+        <span class="hint-inline">arraste sobre o vídeo para centralizar na pessoa</span>
       </div>
 
       <div class="controls-row">
@@ -78,11 +88,15 @@
       </div>
 
       <details class="stream-loader">
-        <summary>Usar a transmissão do drone (WebRTC)</summary>
+        <summary>Outras fontes: transmissão do drone ou voo gravado</summary>
         <p class="hint">Com o servidor local recebendo o RTMP do DJI Fly, a imagem de bordo entra aqui no lugar da webcam.</p>
         <div class="controls-row">
           <input id="streamUrl" type="text" value="http://127.0.0.1:8889/live/whep" />
           <button id="btnStream" class="btn">Conectar</button>
+        </div>
+        <p class="hint">Ou um vídeo gravado pelo drone, como os clipes em <code>demo/</code>, para demonstrar a inspeção sem voar.</p>
+        <div class="controls-row files-row">
+          <label class="file-label">Arquivo de vídeo<input id="fileVideo" type="file" accept="video/*" /></label>
         </div>
         <p class="hint" id="streamStatus">Não conectado.</p>
       </details>
@@ -232,6 +246,7 @@
 </div>
 
 <canvas id="snapshotCanvas" hidden></canvas>
+<canvas id="inferCanvas" hidden></canvas>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js" integrity="sha384-LBtUZzDp17Y7UgB/KFromf1LnY7o5ls8Oxm4vEAoTM0U+JzaadctX2/buQiNHyQU" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js" integrity="sha384-4Q4fzaRr/bPyBiOertaWuZ8Zn987vAWqtNLbL6h+tf/Y+flpirtyqFTd7q9ELxjS" crossorigin="anonymous"></script>

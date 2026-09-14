@@ -190,7 +190,42 @@ body {
   border: 1px solid var(--border);
 }
 
-#webcam { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* contain, não cover: a janela de inspeção precisa de correspondência exata com os pixels
+   do quadro, e a imagem do drone é 16:9 numa caixa 4:3 */
+#webcam { width: 100%; height: 100%; object-fit: contain; display: block; background: #000; }
+
+.inspect-window {
+  position: absolute;
+  border: 2px solid var(--orange);
+  box-shadow: 0 0 0 9999px rgba(11, 12, 10, 0.45);
+  pointer-events: none;
+  box-sizing: border-box;
+}
+.inspect-window span {
+  position: absolute;
+  left: -2px;
+  top: -18px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--orange);
+  white-space: nowrap;
+}
+.video-wrap:has(.inspect-window:not([hidden])) { cursor: crosshair; }
+
+.inspect-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+.inspect-row label { color: var(--text-dim); text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; }
+.inspect-row input[type="range"] { flex: 1; min-width: 90px; accent-color: var(--orange); }
+.inspect-row .mono { font-family: var(--font-mono); color: var(--paper); }
+.inspect-row .hint-inline { color: var(--text-dim); font-size: 11px; width: 100%; }
 
 .video-overlay {
   position: absolute;

@@ -31,6 +31,10 @@ const DRONE = {
   cameraPixels: 1920,
   sidelap: 0.20,
   inspectTimeoutMs: 20000,
+  // Lado, no solo, da janela que o classificador de gesto recebe. O mesmo valor usado ao
+  // recortar os dados de treino (scripts/build_gesture_dataset.py): a pessoa ocupa cerca de
+  // um quarto do recorte, o suficiente para os braços terem espessura no 224x224 do modelo.
+  inspectFootprintM: 6,
 };
 
 const ARM_SPAN_M = 1.7;      // envergadura de braços abertos
@@ -86,6 +90,11 @@ const state = {
 
   inference: { fps: 0, latencyMs: 0, frames: 0, windowStart: 0 },
 
+  // Janela de inspeção: centro em fração do quadro (arrastável) e lado em fração da largura.
+  // O lado é recalculado pela altura ao iniciar a inspeção e pode ser ajustado à mão.
+  inspectWindow: { cx: 0.5, cy: 0.5, frac: 0.13 },
+  fileUrl: null,
+
   mission: {
     running: false,
     // idle | searching | descending | inspecting | climbing | alert | swept | depleted
@@ -121,7 +130,8 @@ const els = {};
   "droneGround", "droneAgl", "droneGesturePx", "droneBattery", "droneCoverage", "terrainNote",
   "cornerNW", "cornerSE", "btnApplyGeofence", "routeInfo", "simSpeed",
   "btnStartMission", "btnPauseMission", "btnResumeSearch", "btnExportReport",
-  "alertLog", "flowStrip", "snapshotCanvas",
+  "alertLog", "flowStrip", "snapshotCanvas", "inferCanvas",
+  "inspectWindow", "inspectRow", "inspectFrac", "inspectInfo", "fileVideo",
   "shotModal", "shotModalImg", "shotModalMeta", "shotModalClose",
 ].forEach((id) => { els[id] = document.getElementById(id); });
 
@@ -514,10 +524,13 @@ function beginInspection() {
   m.inspectStartedAt = performance.now();
   state.sustainStartedAt = null;
   state.smoothedProb = 0;
+  state.inspectWindow.frac = inspectFracFor(m.aglM);
+  els.inspectFrac.value = Math.round(state.inspectWindow.frac * 100);
   const px = gesturePixels(m.aglM);
   logDetection(
     "info",
-    `inspecionando a ${Math.round(m.aglM)} m: braços com ${px.span.toFixed(0)} px de envergadura`
+    `inspecionando a ${Math.round(m.aglM)} m: braços com ${px.span.toFixed(0)} px de envergadura, ` +
+    `janela de ${DRONE.inspectFootprintM} m no solo`
   );
   syncButtons();
   syncFlowToMission();
@@ -929,6 +942,7 @@ function updatePipelineState() {
     label = stage === "deteccao" ? "procurando pessoa" : "classificando gesto";
   }
   els.pipelineState.textContent = label;
+  renderInspectWindow();
 }
 
 function checkSustainedGesture(rawProb) {
@@ -981,7 +995,17 @@ function captureSnapshot() {
   const sc = els.snapshotCanvas;
   sc.width = 320;
   sc.height = 240;
-  sc.getContext("2d").drawImage(els.webcam, 0, 0, sc.width, sc.height);
+  const ctx = sc.getContext("2d");
+  ctx.drawImage(els.webcam, 0, 0, sc.width, sc.height);
+  if (state.mission.droneState === "inspecting") {
+    // a janela de inspeção em destaque: é este recorte que o classificador recebeu
+    const r = inspectCropRect();
+    const kx = sc.width / els.webcam.videoWidth;
+    const ky = sc.height / els.webcam.videoHeight;
+    ctx.strokeStyle = "#FF6A1A";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(r.x * kx, r.y * ky, r.side * kx, r.side * ky);
+  }
   return sc.toDataURL("image/jpeg", 0.72);
 }
 
@@ -1099,6 +1123,72 @@ function openSnapshot(a) {
   els.shotModal.hidden = false;
 }
 
+// ---------- Janela de inspeção ----------
+// Fração da largura do quadro que cobre inspectFootprintM metros na altura informada.
+function inspectFracFor(aglM) {
+  const frac = DRONE.inspectFootprintM / swathWidthM(aglM);
+  return Math.min(1, Math.max(0.05, frac));
+}
+
+// Retângulo do recorte em pixels do vídeo (resolução nativa, não a exibida).
+function inspectCropRect() {
+  const vw = els.webcam.videoWidth;
+  const vh = els.webcam.videoHeight;
+  const w = state.inspectWindow;
+  const side = Math.min(vh, Math.round(vw * w.frac));
+  const x = Math.round(Math.min(Math.max(w.cx * vw - side / 2, 0), vw - side));
+  const y = Math.round(Math.min(Math.max(w.cy * vh - side / 2, 0), vh - side));
+  return { x, y, side };
+}
+
+// Onde o vídeo aparece dentro da caixa (object-fit: contain deixa barras quando as
+// proporções diferem), para posicionar o quadro da janela e converter cliques.
+function videoDisplayRect() {
+  const box = els.webcam.getBoundingClientRect();
+  const vw = els.webcam.videoWidth || 4;
+  const vh = els.webcam.videoHeight || 3;
+  const scale = Math.min(box.width / vw, box.height / vh);
+  const w = vw * scale;
+  const h = vh * scale;
+  return { left: (box.width - w) / 2, top: (box.height - h) / 2, width: w, height: h };
+}
+
+function renderInspectWindow() {
+  const show = activeStage() === "gesto" && els.webcam.videoWidth > 0;
+  els.inspectWindow.hidden = !show;
+  els.inspectRow.hidden = !show;
+  if (!show) return;
+  const r = inspectCropRect();
+  const d = videoDisplayRect();
+  const k = d.width / els.webcam.videoWidth;
+  els.inspectWindow.style.left = `${d.left + r.x * k}px`;
+  els.inspectWindow.style.top = `${d.top + r.y * k}px`;
+  els.inspectWindow.style.width = `${r.side * k}px`;
+  els.inspectWindow.style.height = `${r.side * k}px`;
+  const metros = state.inspectWindow.frac * swathWidthM(state.mission.aglM);
+  els.inspectInfo.textContent = `${metros.toFixed(1)} m no solo a ${Math.round(state.mission.aglM)} m`;
+}
+
+// Copia o recorte para o canvas de inferência, que é o que o classificador de gesto recebe.
+function drawInspectCrop() {
+  const r = inspectCropRect();
+  const c = els.inferCanvas;
+  c.width = 224;
+  c.height = 224;
+  c.getContext("2d").drawImage(els.webcam, r.x, r.y, r.side, r.side, 0, 0, 224, 224);
+  return c;
+}
+
+function setInspectCenterFromPointer(ev) {
+  const box = els.webcam.getBoundingClientRect();
+  const d = videoDisplayRect();
+  const fx = (ev.clientX - box.left - d.left) / d.width;
+  const fy = (ev.clientY - box.top - d.top) / d.height;
+  state.inspectWindow.cx = Math.min(1, Math.max(0, fx));
+  state.inspectWindow.cy = Math.min(1, Math.max(0, fy));
+  renderInspectWindow();
+}
+
 // ---------- Câmera e modelo ----------
 // A fonte pode ser a webcam interna ou a imagem do drone entrando por um capturador
 // HDMI, que o navegador enxerga como mais um dispositivo de vídeo.
@@ -1196,7 +1286,30 @@ async function connectStream(url) {
   updatePipelineState();
 }
 
+// Um voo gravado entra pelo mesmo elemento de vídeo: a inferência não distingue a origem.
+function playVideoFile(file) {
+  stopSources();
+  if (state.fileUrl) URL.revokeObjectURL(state.fileUrl);
+  state.fileUrl = URL.createObjectURL(file);
+  els.webcam.srcObject = null;
+  els.webcam.src = state.fileUrl;
+  els.webcam.loop = true;
+  els.webcam.play();
+  els.videoOverlay.hidden = true;
+  els.btnCamera.disabled = true;
+  els.streamStatus.textContent = `Reproduzindo ${file.name}.`;
+  logDetection("info", `fonte de vídeo: arquivo ${file.name}`);
+  setActiveFlow("sensor");
+  startPredictionLoop();
+  updatePipelineState();
+}
+
 function stopSources() {
+  if (els.webcam.src && !els.webcam.srcObject) {
+    els.webcam.pause();
+    els.webcam.removeAttribute("src");
+    els.webcam.load();
+  }
   if (state.webcamStream) {
     state.webcamStream.getTracks().forEach((t) => t.stop());
     state.webcamStream = null;
@@ -1303,7 +1416,8 @@ function startPredictionLoop() {
     if (!slot || !slot.model || !els.webcam.videoWidth) return;
 
     const t0 = performance.now();
-    const predictions = await slot.model.predict(els.webcam);
+    const input = stage === "gesto" ? drawInspectCrop() : els.webcam;
+    const predictions = await slot.model.predict(input);
     const latency = performance.now() - t0;
 
     state.inference.latencyMs = state.inference.latencyMs
@@ -1446,6 +1560,31 @@ els.btnStream.addEventListener("click", async () => {
     els.streamStatus.textContent = `Falha ao conectar: ${e.message}. Confira se o servidor local está no ar e recebendo o RTMP.`;
   }
 });
+
+els.fileVideo.addEventListener("change", () => {
+  const f = els.fileVideo.files[0];
+  if (f) playVideoFile(f);
+});
+
+// a janela de inspeção segue o dedo ou o mouse sobre o vídeo
+els.webcam.parentElement.addEventListener("pointerdown", (ev) => {
+  if (activeStage() !== "gesto") return;
+  ev.preventDefault();
+  setInspectCenterFromPointer(ev);
+  const move = (e) => setInspectCenterFromPointer(e);
+  const up = () => {
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", up);
+  };
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", up);
+});
+els.inspectFrac.addEventListener("input", () => {
+  state.inspectWindow.frac = Number(els.inspectFrac.value) / 100;
+  renderInspectWindow();
+});
+els.webcam.addEventListener("loadedmetadata", renderInspectWindow);
+window.addEventListener("resize", renderInspectWindow);
 
 // um capturador pode ser conectado depois que a câmera já está ligada
 navigator.mediaDevices.addEventListener("devicechange", () => {

@@ -107,10 +107,22 @@ carregados na interface por link compartilhável ou pelos arquivos exportados
 derivadas de filmagem real de drone. Procedência e limitações em
 [dataset-deteccao/LEIA-ME.md](dataset-deteccao/LEIA-ME.md).
 
-**Estágio 2, gesto.** Ainda precisa ser capturado. O ponto crítico: os dados devem vir de
-uma câmera elevada apontada para baixo, aproximando a geometria de 25 m de altura. Uma
-webcam frontal ao nível dos olhos serve para demonstrar a interface, nunca como modelo de
-produção.
+**Estágio 2, gesto.** Suba as duas classes de `dataset-gesto/`: `socorro.zip`
+(214 imagens) e `sem_socorro.zip` (331 imagens), recortadas de voos próprios com um DJI
+Flip a 13 a 37 m sobre pessoas fazendo o T e as posturas que não são socorro (em pé,
+caminhando, sentado, deitado, um braço só, acenando). Cada recorte cobre cerca de 6 m no
+solo, calculado pela altura que o drone grava na telemetria do MP4; o protótipo aplica a
+mesma janela na inspeção. Procedência, composição dos negativos e viés medido em
+[dataset-gesto/LEIA-ME.md](dataset-gesto/LEIA-ME.md).
+
+**Janela de inspeção.** Na inspeção o classificador de gesto não recebe o quadro inteiro:
+recebe um recorte de 6 m no solo (a 25 m, 13% da largura), desenhado sobre o vídeo e
+arrastável para centralizar na pessoa. Sem isso os braços abertos teriam menos de 1 px
+de espessura nos 224x224 do modelo.
+
+**Demonstração sem voar.** `demo/voo-socorro.mp4` (descida de 33 m a 14 m sobre a pessoa
+em T) e `demo/voo-sem-socorro.mp4` (caminhando, um braço, agachado, deitado) entram na
+interface por "Outras fontes > Arquivo de vídeo" e percorrem o mesmo fluxo da câmera.
 
 ## Estrutura
 
@@ -118,22 +130,27 @@ produção.
 index.html, app.js, style.css   protótipo
 terrain.js                      elevação SRTM e curvas de nível da área (gerado)
 dataset-deteccao/               classes prontas para o estágio 1
+dataset-gesto/                  classes prontas para o estágio 2
+demo/                           trechos dos voos para demonstrar a inspeção
 scripts/
   gen_terrain_data.py           busca a elevação e gera terrain.js
   build_detection_dataset.py    monta as classes do estágio 1
+  build_gesture_dataset.py      monta as classes do estágio 2 a partir dos voos
   analyze_uav_gestures.py       mede os 13 gestos e escolhe o de socorro
 ESCOLHA-DO-GESTO.md             método e resultado da escolha do gesto
 ```
 
-Os três scripts reproduzem os dados a partir das fontes originais, então a procedência é
-auditável.
+Os scripts reproduzem os dados a partir das fontes originais, então a procedência é
+auditável. Os vídeos completos dos voos (3 GB) ficam fora do repositório.
 
 ## Limitações
 
-- A webcam vê de frente ao nível dos olhos; o drone vê de cima. O protótipo assume essa
-  substituição de forma explícita, e ela não se sustenta num modelo de produção.
-- O conjunto do estágio 1 vem de poucos vídeos, com quadros consecutivos quase idênticos,
-  então a acurácia relatada pelo Teachable Machine é otimista.
+- A webcam vê de frente ao nível dos olhos; o drone vê de cima. Para o estágio 2 os dados
+  e os clipes de demonstração já são aéreos; a webcam continua servindo só para mostrar a
+  interface.
+- Os dois conjuntos vêm de poucos vídeos, com quadros consecutivos parecidos, então a
+  acurácia relatada pelo Teachable Machine é otimista. No estágio 2, uma única pessoa faz
+  o gesto, de roupa escura, num único piso.
 - A separabilidade do gesto foi medida contra outros sinais aeronáuticos, não contra
   atividade humana comum, que é a fonte real de falso positivo numa busca.
 - O voo é simulado em canvas 2D: não há controle de voo, telemetria de rádio nem desvio

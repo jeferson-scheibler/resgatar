@@ -2,6 +2,8 @@
 # imagens, e scripts/build_detection_dataset.py regenera as pastas quando preciso.
 dataset-deteccao/pessoa/
 dataset-deteccao/sem_pessoa/
+dataset-gesto/socorro/
+dataset-gesto/sem_socorro/
 
 # Artefatos de execução
 __pycache__/
@@ -10,3 +12,6 @@ node_modules/
 
 # Arquivos originais das bases de terceiros, baixados pelos scripts sob demanda
 dados-brutos/
+
+# Voos proprios usados no estagio de gesto (3 GB de video 4K)
+videos-drone/
