@@ -123,7 +123,8 @@ posição vizinha por ciclo e dá um passo para onde o classificador enxerga mai
 fazendo o papel do gimbal que centraliza o alvo no drone real.
 
 **Tela de teste do modelo.** `busca.html` é a versão reduzida, sem mapa nem simulação:
-link do modelo, vídeo do voo e "Iniciar missão". A janela do classificador varre o quadro
+link do modelo, fonte de vídeo (um voo gravado ou a transmissão ao vivo do controle, pelo
+mesmo servidor WHEP do protótipo completo) e "Iniciar missão". A janela do classificador varre o quadro
 em grade, trava onde encontra o gesto, acompanha a pessoa e, após 1,5 s de confirmação,
 declara **Localizado** e encerra, mostrando o recorte que decidiu. Serve para comprovar
 o treinamento antes de entrar no protótipo completo.

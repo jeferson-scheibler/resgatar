@@ -145,7 +145,7 @@
     <div class="busca-video">
       <video id="video" playsinline muted loop></video>
       <div class="janela" id="janela" hidden></div>
-      <div class="aviso" id="aviso">Carregue o modelo e escolha um vídeo</div>
+      <div class="aviso" id="aviso">Carregue o modelo e escolha um vídeo ou conecte a transmissão</div>
     </div>
     <p class="hint">A janela laranja é o que o classificador recebe: um recorte de 224x224 do quadro. Ela varre o vídeo em grade; ao encontrar o gesto, trava na pessoa, acompanha e exige 1,5 s de confirmação antes de declarar localizado.</p>
     <div class="registro" id="registro"></div>
@@ -164,11 +164,16 @@
     </div>
 
     <div class="passo">
-      <label>2. Vídeo do voo</label>
+      <label>2. Fonte de vídeo</label>
       <div class="linha">
         <label class="btn arquivo-btn">Escolher vídeo<input id="arquivo" type="file" accept="video/*" /></label>
         <span class="arquivo-nome" id="statusVideo">Nenhum vídeo.</span>
       </div>
+      <div class="linha" style="margin-top:6px">
+        <input id="stream" type="text" value="http://127.0.0.1:8889/live/whep" title="Endereço WHEP do servidor local que recebe o RTMP do controle" />
+        <button id="btnStream" class="btn">Ao vivo</button>
+      </div>
+      <div class="status" id="statusStream">Transmissão do drone: não conectada.</div>
     </div>
 
     <div class="passo">

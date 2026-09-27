@@ -1,6 +1,7 @@
-// Tela reduzida do ResgatAr: prova que o modelo de gesto treinado funciona sobre um voo gravado.
-// Sem mapa nem simulação de voo. O classificador recebe uma janela do quadro, a janela varre o
-// vídeo em grade, trava onde encontra o gesto, acompanha a pessoa e exige confirmação sustentada.
+// Tela reduzida do ResgatAr: prova que o modelo de gesto treinado funciona sobre a imagem do
+// drone. Sem mapa nem simulação de voo. O classificador recebe uma janela do quadro, a janela
+// varre o vídeo em grade, trava onde encontra o gesto, acompanha a pessoa e exige confirmação
+// sustentada. A fonte pode ser um voo gravado ou a transmissão ao vivo do controle.
 
 const LIMIAR = 0.85;          // confiança mínima para contar como gesto
 const SUSTENTAR_MS = 1500;    // tempo com confiança acima do limiar para declarar localizado
@@ -10,7 +11,8 @@ const INTERVALO_MS = 60;      // ritmo do laço de inferência
 
 const els = {};
 ["video", "janela", "aviso", "registro", "estado", "estadoDetalhe", "link", "btnCarregar",
- "statusModelo", "arquivo", "statusVideo", "tamanho", "statusTamanho", "btnIniciar", "btnParar",
+ "statusModelo", "arquivo", "statusVideo", "stream", "btnStream", "statusStream",
+ "tamanho", "statusTamanho", "btnIniciar", "btnParar",
  "barraSocorro", "statusProb", "resultado", "resultadoImg", "resConf", "resTempo", "resPos",
  "resInf", "recorte"].forEach((id) => { els[id] = document.getElementById(id); });
 
@@ -19,6 +21,8 @@ const estado = {
   alvo: 0,
   rotulos: [],
   arquivoUrl: null,
+  streamPc: null,
+  aoVivo: false,
   rodando: false,
   modo: "aguardando", // aguardando | procurando | confirmando | localizado
   janela: { cx: 0.5, cy: 0.5, frac: 0.13 },
@@ -184,16 +188,23 @@ function mostrarProb(p) {
   els.statusProb.textContent = `${estado.rotulos[estado.alvo] || "socorro"}: ${Math.round(p * 100)}%  (${Math.round(estado.latenciaMs)} ms por inferência)`;
 }
 
+// Num arquivo, o instante é a posição no vídeo; ao vivo, é a hora do relógio.
+function instante() {
+  return estado.aoVivo
+    ? new Date().toLocaleTimeString("pt-BR")
+    : `${els.video.currentTime.toFixed(1)} s do vídeo`;
+}
+
 function localizado() {
   estado.rodando = false;
   clearInterval(estado.timer);
   els.video.pause();
   const j = estado.janela;
   setEstado("localizado", "pessoa pedindo socorro; missão encerrada");
-  registrar(`LOCALIZADO com ${Math.round(estado.suavizada * 100)}% aos ${els.video.currentTime.toFixed(1)} s do vídeo`, true);
+  registrar(`LOCALIZADO com ${Math.round(estado.suavizada * 100)}% em ${instante()}`, true);
   els.resultadoImg.src = recorte().toDataURL("image/jpeg", 0.9);
   els.resConf.textContent = `${Math.round(estado.suavizada * 100)}% sustentado por ${SUSTENTAR_MS / 1000} s`;
-  els.resTempo.textContent = `${els.video.currentTime.toFixed(1)} s do vídeo`;
+  els.resTempo.textContent = instante();
   els.resPos.textContent = `x ${Math.round(j.cx * 100)}%, y ${Math.round(j.cy * 100)}%, janela ${Math.round(j.frac * 100)}%`;
   els.resInf.textContent = `${Math.round(estado.latenciaMs)} ms por quadro, ${tf.getBackend()}`;
   els.resultado.classList.add("ativo");
@@ -212,7 +223,7 @@ function iniciar() {
   montarGrade();
   setEstado("procurando", "varrendo o quadro");
   registrar(`missão iniciada: grade de ${estado.grade.length} posições, janela de ${Math.round(estado.janela.frac * 100)}% da largura`);
-  els.video.currentTime = 0;
+  if (!estado.aoVivo) els.video.currentTime = 0;
   els.video.play().catch(() => {
     els.aviso.textContent = "Clique aqui para reproduzir o vídeo";
     els.aviso.hidden = false;
@@ -233,6 +244,73 @@ function parar(motivo) {
   els.btnIniciar.textContent = "Iniciar missão";
   els.btnParar.disabled = true;
   desenharJanela();
+}
+
+// ---------- fontes de vídeo ----------
+function pararFontes() {
+  if (estado.streamPc) {
+    estado.streamPc.close();
+    estado.streamPc = null;
+  }
+  if (estado.arquivoUrl) {
+    URL.revokeObjectURL(estado.arquivoUrl);
+    estado.arquivoUrl = null;
+  }
+  els.video.srcObject = null;
+  if (els.video.getAttribute("src")) {
+    els.video.removeAttribute("src");
+    els.video.load();
+  }
+}
+
+// Recebe a imagem do drone no padrão WHEP: o DJI Fly publica por RTMP num servidor local, que
+// republica em WebRTC. O navegador manda uma oferta SDP e recebe a resposta. Daqui para frente
+// nada muda, porque a inferência classifica o elemento de vídeo, seja qual for a fonte.
+async function conectarStream(url) {
+  els.statusStream.textContent = "Conectando...";
+  parar("conectando à transmissão do drone");
+  pararFontes();
+
+  const pc = new RTCPeerConnection({ iceServers: [] });
+  estado.streamPc = pc;
+  pc.addTransceiver("video", { direction: "recvonly" });
+
+  pc.addEventListener("track", (ev) => {
+    if (pc !== estado.streamPc) return;
+    estado.aoVivo = true;
+    els.video.srcObject = ev.streams[0];
+    els.video.play().catch(() => {});
+    els.aviso.hidden = true;
+  });
+
+  pc.addEventListener("connectionstatechange", () => {
+    if (pc !== estado.streamPc) return;
+    if (pc.connectionState === "connected") {
+      els.statusStream.textContent = "Transmissão do drone conectada.";
+      registrar("fonte de vídeo: transmissão ao vivo do drone");
+    } else if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
+      els.statusStream.textContent = "Conexão perdida.";
+      estado.aoVivo = false;
+    }
+  });
+
+  await pc.setLocalDescription(await pc.createOffer());
+  // sem trickle: espera reunir os candidatos antes de enviar a oferta
+  await new Promise((resolve) => {
+    if (pc.iceGatheringState === "complete") return resolve();
+    const t = setTimeout(resolve, 2500);
+    pc.addEventListener("icegatheringstatechange", () => {
+      if (pc.iceGatheringState === "complete") { clearTimeout(t); resolve(); }
+    });
+  });
+
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/sdp" },
+    body: pc.localDescription.sdp,
+  });
+  if (!resp.ok) throw new Error(`servidor respondeu ${resp.status}`);
+  await pc.setRemoteDescription({ type: "answer", sdp: await resp.text() });
 }
 
 // ---------- entradas ----------
@@ -258,10 +336,24 @@ els.btnCarregar.addEventListener("click", async () => {
   atualizarBotoes();
 });
 
+els.btnStream.addEventListener("click", async () => {
+  const url = els.stream.value.trim();
+  if (!url) return;
+  try {
+    await conectarStream(url);
+  } catch (e) {
+    estado.aoVivo = false;
+    els.statusStream.textContent =
+      `Falha ao conectar: ${e.message}. Confira se o servidor local está no ar e recebendo o RTMP.`;
+  }
+});
+
 els.arquivo.addEventListener("change", () => {
   const f = els.arquivo.files[0];
   if (!f) return;
-  if (estado.arquivoUrl) URL.revokeObjectURL(estado.arquivoUrl);
+  pararFontes();
+  estado.aoVivo = false;
+  els.statusStream.textContent = "Transmissão do drone: não conectada.";
   estado.arquivoUrl = URL.createObjectURL(f);
   els.video.src = estado.arquivoUrl;
   els.video.load();
@@ -273,8 +365,14 @@ els.arquivo.addEventListener("change", () => {
 
 els.video.addEventListener("loadedmetadata", () => {
   els.aviso.hidden = true;
-  els.statusVideo.textContent += ` (${els.video.videoWidth}x${els.video.videoHeight}, ${els.video.duration.toFixed(0)} s)`;
-  els.video.play().then(() => els.video.pause()).catch(() => {});
+  const dim = `${els.video.videoWidth}x${els.video.videoHeight}`;
+  if (estado.aoVivo) {
+    // a duração de uma transmissão é infinita, e não faz sentido deixá-la pausada no início
+    els.statusVideo.textContent = `Transmissão ao vivo (${dim})`;
+  } else {
+    els.statusVideo.textContent += ` (${dim}, ${els.video.duration.toFixed(0)} s)`;
+    els.video.play().then(() => els.video.pause()).catch(() => {});
+  }
   atualizarBotoes();
 });
 
