@@ -128,7 +128,8 @@
       linear-gradient(90deg, rgba(11,12,10,0.97) 42%, rgba(11,12,10,0.55) 100%),
       url("img/acao.jpg") center/cover no-repeat;
   }
-  .capa img.marca { height: 40px; width: auto; margin-bottom: 34px; }
+  /* sem align-self o flex em coluna estica a largura da marca e deforma o logotipo */
+  .capa img.marca { height: 40px; width: auto; align-self: flex-start; margin-bottom: 34px; }
   .capa h1 {
     font-family: var(--display);
     font-weight: 700;
