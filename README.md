@@ -129,6 +129,9 @@ em grade, trava onde encontra o gesto, acompanha a pessoa e, após 1,5 s de conf
 declara **Localizado** e encerra, mostrando o recorte que decidiu. Serve para comprovar
 o treinamento antes de entrar no protótipo completo.
 
+**Apresentação.** `slides/` traz o pitch da atividade integradora, navegável por setas e
+imprimível em PDF com Ctrl+P. Publicado junto com o protótipo pelo GitHub Pages.
+
 **Demonstração sem voar.** `demo/voo-socorro.mp4` (descida de 33 m a 14 m sobre a pessoa
 em T) e `demo/voo-sem-socorro.mp4` (caminhando, um braço, agachado, deitado) entram na
 interface por "Outras fontes > Arquivo de vídeo" e percorrem o mesmo fluxo da câmera.
@@ -138,6 +141,7 @@ interface por "Outras fontes > Arquivo de vídeo" e percorrem o mesmo fluxo da c
 ```
 index.html, app.js, style.css   protótipo completo
 busca.html, busca.js            tela reduzida: modelo + vídeo + localizar
+slides/                         apresentação do pitch, publicada no GitHub Pages
 terrain.js                      elevação SRTM e curvas de nível da área (gerado)
 dataset-deteccao/               classes prontas para o estágio 1
 dataset-gesto/                  classes prontas para o estágio 2

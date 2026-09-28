@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ResgatAr: pitch da interação não convencional</title>
+<link rel="icon" type="image/png" href="../favicon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #0B0C0A;
+    --panel: #141513;
+    --panel-2: #1B1C19;
+    --border: #2E2F2A;
+    --stone: #B9B29C;
+    --paper: #EDE9DD;
+    --text-dim: #8A8C82;
+    --orange: #FF6A1A;
+    --orange-dim: #C94E0E;
+    --alert: #E8491D;
+    --ok: #8A9A6E;
+    --display: "Oswald", "Inter", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+    --body: "Inter", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--body);
+    overflow: hidden;
+  }
+
+  /* ---------- palco 16:9 escalado para caber na janela ---------- */
+  .palco {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 1280px;
+    height: 720px;
+    margin: -360px 0 0 -640px;
+    transform-origin: center center;
+  }
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: none;
+    padding: 46px 58px 54px;
+    background: var(--ink);
+  }
+  .slide.ativo { display: block; }
+
+  .topo {
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--orange) 0%, var(--orange-dim) 100%);
+  }
+
+  /* ---------- tipografia ---------- */
+  .etiqueta {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--orange);
+    margin-bottom: 10px;
+  }
+  h2 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 40px;
+    line-height: 1.08;
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+    margin: 0 0 20px;
+  }
+  h2 em { font-style: normal; color: var(--orange); }
+  p { margin: 0 0 12px; font-size: 17px; line-height: 1.5; color: var(--paper); }
+  p.sec { color: var(--stone); font-size: 15.5px; }
+  ul { margin: 0; padding: 0; list-style: none; }
+  li {
+    position: relative;
+    padding-left: 20px;
+    margin-bottom: 11px;
+    font-size: 17px;
+    line-height: 1.45;
+  }
+  li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 10px;
+    width: 8px;
+    height: 2px;
+    background: var(--orange);
+  }
+  li b { color: var(--paper); font-weight: 600; }
+  li span { color: var(--stone); }
+  .mono { font-family: var(--mono); }
+  .dim { color: var(--text-dim); }
+
+  .duas { display: grid; grid-template-columns: 1fr 1fr; gap: 34px; align-items: start; }
+  .duas.larga-dir { grid-template-columns: 0.85fr 1.15fr; }
+  .duas.larga-esq { grid-template-columns: 1.15fr 0.85fr; }
+
+  figure { margin: 0; }
+  figure img { width: 100%; display: block; border: 1px solid var(--border); }
+  figcaption {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 7px;
+    line-height: 1.45;
+  }
+
+  /* ---------- capa ---------- */
+  .capa.ativo { display: flex; }
+  .capa {
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 80px;
+    background:
+      linear-gradient(90deg, rgba(11,12,10,0.97) 42%, rgba(11,12,10,0.55) 100%),
+      url("img/acao.jpg") center/cover no-repeat;
+  }
+  .capa img.marca { height: 40px; width: auto; margin-bottom: 34px; }
+  .capa h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 58px;
+    line-height: 1.04;
+    text-transform: uppercase;
+    margin: 0 0 18px;
+    max-width: 700px;
+  }
+  .capa h1 em { font-style: normal; color: var(--orange); }
+  .capa .sub { font-size: 19px; color: var(--stone); max-width: 560px; margin-bottom: 40px; }
+  .capa .ficha { font-family: var(--mono); font-size: 12.5px; color: var(--text-dim); line-height: 1.85; }
+  .capa .ficha b { color: var(--paper); font-weight: 500; }
+
+  /* ---------- blocos de destaque ---------- */
+  .cartao {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    padding: 16px 18px;
+  }
+  .cartao.acende { border-color: var(--orange); }
+  .cartao h3 {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--orange);
+    margin: 0 0 8px;
+    font-weight: 500;
+  }
+  .cartao p { font-size: 15px; margin: 0; line-height: 1.45; }
+
+  .numeros { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 6px; }
+  .numero { border-left: 2px solid var(--orange); padding-left: 12px; }
+  .numero b {
+    display: block;
+    font-family: var(--display);
+    font-size: 34px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--paper);
+  }
+  .numero span {
+    display: block;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-dim);
+    margin-top: 6px;
+    line-height: 1.4;
+  }
+
+  /* ---------- tabela ---------- */
+  table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 14px; }
+  th, td { text-align: left; padding: 13px 10px; border-bottom: 1px solid var(--border); }
+  th {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    font-weight: 500;
+  }
+  td.nao { color: var(--alert); }
+  td.sim { color: var(--ok); }
+  tr.destaque td { background: rgba(255, 106, 26, 0.08); }
+
+  /* ---------- fluxo ---------- */
+  .fluxo { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 4px; }
+  .etapa {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    padding: 16px 14px 18px;
+    min-height: 168px;
+    position: relative;
+  }
+  .etapa:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    right: -8px;
+    top: 50%;
+    width: 8px;
+    height: 1px;
+    background: var(--orange);
+  }
+  .etapa b {
+    display: block;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--orange);
+    margin-bottom: 7px;
+    font-weight: 500;
+  }
+  .etapa span { font-size: 14.5px; line-height: 1.45; color: var(--paper); }
+
+  /* ---------- painel do storyboard ---------- */
+  .cena { position: relative; }
+  .cena img { width: 100%; display: block; border: 1px solid var(--border); }
+  .janela {
+    position: absolute;
+    border: 2px solid var(--orange);
+    aspect-ratio: 1;
+    box-sizing: border-box;
+  }
+  .janela.fraca { border-color: rgba(255, 106, 26, 0.55); }
+  .janela.travada { box-shadow: 0 0 0 999px rgba(11, 12, 10, 0.5); }
+  .marcador {
+    position: absolute;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--orange);
+    background: rgba(11, 12, 10, 0.82);
+    padding: 2px 6px;
+    white-space: nowrap;
+  }
+
+  .estado-caixa {
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    padding: 12px 14px;
+    margin-bottom: 12px;
+  }
+  .estado-caixa.ok { background: var(--orange); border-color: var(--orange); }
+  .estado-caixa b {
+    display: block;
+    font-family: var(--display);
+    font-size: 24px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    line-height: 1;
+  }
+  .estado-caixa.ok b { color: var(--ink); }
+  .estado-caixa span {
+    display: block;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 6px;
+  }
+  .estado-caixa.ok span { color: rgba(23, 11, 2, 0.8); }
+
+  .barra { height: 7px; background: var(--panel-2); border: 1px solid var(--border); margin: 10px 0 4px; }
+  .barra > i { display: block; height: 100%; background: var(--orange); }
+
+  .passos { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; margin-top: 16px; }
+  .passos div {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    border-top: 2px solid var(--border);
+    padding-top: 7px;
+  }
+  .passos div.aqui { color: var(--orange); border-top-color: var(--orange); }
+
+  /* ---------- links ---------- */
+  .link-grande {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 15px;
+    color: var(--ink);
+    background: var(--orange);
+    padding: 12px 20px;
+    text-decoration: none;
+    letter-spacing: 0.02em;
+  }
+  .link-grande:hover { background: var(--paper); }
+  a.discreto { color: var(--orange); text-decoration: none; border-bottom: 1px solid var(--orange-dim); }
+
+  /* ---------- rodapé e navegação ---------- */
+  .rodape {
+    position: absolute;
+    left: 58px;
+    right: 58px;
+    bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .progresso {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 2px;
+    background: var(--orange);
+    transition: width 0.18s ease;
+  }
+  .ajuda {
+    position: fixed;
+    right: 14px;
+    top: 12px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--border);
+    pointer-events: none;
+  }
+
+  /* ---------- impressão em PDF ---------- */
+  @page { size: 1280px 720px; margin: 0; }
+  @media print {
+    body { overflow: visible; background: #fff; }
+    .palco {
+      position: static;
+      width: 1280px;
+      height: auto;
+      margin: 0;
+      transform: none !important;
+    }
+    .slide {
+      position: relative;
+      display: block !important;
+      width: 1280px;
+      height: 720px;
+      page-break-after: always;
+      break-after: page;
+    }
+    /* as capas usam flex para centralizar, e precisam manter isso no PDF */
+    .slide.capa { display: flex !important; }
+    .ajuda, .progresso { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="palco" id="palco">
+
+  <!-- ============ CAPA ============ -->
+  <section class="slide capa ativo">
+    <img class="marca" src="../logo-horizontal-white.png" alt="ResgatAr" />
+    <h1>Quem não pode<br />gritar, <em>acena</em></h1>
+    <p class="sub">Drone de busca e resgate que reconhece um gesto de socorro visto de cima e avisa a equipe.</p>
+    <div class="ficha">
+      <b>Jeferson Scheibler</b> e <b>Weslley Eduardo Panzer Freitas</b><br />
+      Sistemas Interativos e de Visualização &middot; Engenharia de Software &middot; Univates<br />
+      Prof. Edson Moacir Ahlert
+    </div>
+  </section>
+
+  <!-- ============ 1. CONCEITUAL ============ -->
+  <section class="slide">
+    <div class="topo"></div>
+    <div class="etiqueta">01 &middot; Problema, público e cenário</div>
+    <h2>Ela está a 40 metros de você<br />e ninguém consegue <em>vê-la</em></h2>
+    <div class="duas larga-esq">
+      <div>
+        <ul>
+          <li><b>Quem se perde em mata fechada</b> <span>raramente consegue gritar depois de horas de exaustão, e o celular costuma estar sem bateria ou sem sinal.</span></li>
+          <li><b>De cima, a copa esconde tudo.</b> <span>A busca aérea varre quilômetros quadrados, e a pessoa no chão ocupa poucos pixels no vídeo.</span></li>
+          <li><b>Público direto:</b> <span>a pessoa buscada, ferida, cansada, sem equipamento nenhum.</span></li>
+          <li><b>Público indireto:</b> <span>a equipe de busca, que precisa de uma coordenada confiável para decidir onde entrar a pé.</span></li>
+        </ul>
+        <div class="cartao" style="margin-top:14px">
+          <h3>Cenário de uso</h3>
+          <p>Varredura aérea sobre área de vários quilômetros quadrados, com o drone a 100 m do solo e cerca de 35 minutos de bateria por saída. A interação dura poucos segundos e só acontece uma vez.</p>
+        </div>
+      </div>
+      <figure>
+        <div class="cena">
+          <img src="img/contexto.jpg" alt="Vista aérea com uma pessoa pequena no terreno" />
+          <div class="janela fraca" style="left:33.5%; top:43.6%; width:11.9%"></div>
+          <div class="marcador" style="left:33.5%; top:33%">a pessoa, a 33 m de altura</div>
+        </div>
+        <figcaption>Quadro real de um dos nossos voos. O alvo da busca é aquele vulto escuro no meio do pátio.</figcaption>
+      </figure>
+    </div>
+    <div class="rodape"><span>ResgatAr</span><span>01 / 13</span></div>
+  </section>
+
+  <section class="slide">
+    <div class="topo"></div>
+    <div class="etiqueta">02 &middot; Problema de interação</div>
+    <h2>Não existe tela<br />nos dois lados</h2>
+    <div class="duas">
+      <div>
+        <p>A interação convencional pressupõe um dispositivo na mão de alguém. Aqui, os dois lados quebram essa premissa.</p>
+        <ul>
+          <li><b>Do lado da vítima:</b> <span>nada. Sem teclado, sem toque, sem voz audível a 100 metros, sem app para instalar em plena mata.</span></li>
+          <li><b>Do lado da equipe:</b> <span>a alternativa atual é um operador olhando vídeo aéreo durante os 38 minutos de rota. Atenção humana não sustenta isso, e o custo de um deslize é uma pessoa não encontrada.</span></li>
+        </ul>
+      </div>
+      <div>
+        <div class="cartao acende">
+          <h3>O que a interação precisa ser</h3>
+          <p>Feita <b>com o corpo</b>, a <b>dezenas de metros</b> de distância, <b>sem contato</b>, <b>sem áudio</b> e <b>sem dispositivo</b>, interpretada pela própria máquina em tempo real.</p>
+        </div>
+        <p class="sec" style="margin-top:14px">Não é uma interação não convencional por estilo. É a única categoria de interação que sobra quando se tiram o toque, a voz e o dispositivo.</p>
+        <div class="cartao" style="margin-top:8px">
+          <h3>Risco que define o projeto</h3>
+          <p>Um movimento qualquer não pode virar alerta. Prevenção de erro deixa de ser detalhe de usabilidade e vira requisito central.</p>
+        </div>
+      </div>
+    </div>
+    <div class="rodape"><span>ResgatAr</span><span>02 / 13</span></div>
+  </section>
+
+  <section class="slide">
+    <div class="topo"></div>
+    <div class="etiqueta">03 &middot; Técnica escolhida e justificativa</div>
+    <h2>Gesto corporal lido por<br /><em>visão computacional</em> aérea</h2>
+    <div class="duas larga-dir">
+      <div>
+        <ul>
+          <li><b>O gesto:</b> <span>braços estendidos na horizontal, um T visto da vertical.</span></li>
+          <li><b>Escolhido por medição,</b> <span>não por intuição: 13 gestos aeronáuticos da base UAV-GESTURE, 119 clipes, 37.151 quadros anotados.</span></li>
+          <li><b>Cinco critérios:</b> <span>abertura vista de cima, distância da postura de repouso, separabilidade, estabilidade no tempo e simetria entre os braços.</span></li>
+          <li><b>O T venceu nos cinco</b> <span>ao mesmo tempo: 2,53 comprimentos de tronco de abertura contra 2,02 do segundo colocado.</span></li>
+        </ul>
+        <div class="cartao" style="margin-top:12px">
+          <h3>Por que não acenar com os braços para cima</h3>
+          <p>Visto da vertical, o braço erguido se projeta sobre a própria cabeça e some. O braço horizontal projeta a envergadura inteira no plano do solo.</p>
+        </div>
+      </div>
+      <figure>
+        <img src="img/gesto-comparacao.jpg" alt="Três posturas vistas de cima: em pé, um braço erguido e braços na horizontal" />
+        <figcaption>
+          Da esquerda para a direita, como a câmera do drone enxerga: <b>em pé</b>, um vulto compacto;
+          <b>um braço erguido</b>, quase igual ao anterior; <b>braços na horizontal</b>, inconfundível.
+          É esse contraste que o modelo precisa aprender.
+        </figcaption>
+      </figure>
+    </div>
+    <div class="rodape"><span>ResgatAr</span><span>03 / 13</span></div>
+  </section>
+
+  <section class="slide">
+    <div class="topo"></div>
+    <div class="etiqueta">04 &middot; Tecnologias e fluxo de interação</div>
+    <h2>Do braço aberto<br />ao aviso na base</h2>
+    <div class="fluxo">
+      <div class="etapa">
+        <b>1 &middot; Usuário</b>
+        <span>A pessoa abre os braços em T e sustenta a postura ao ver o drone.</span>
+      </div>
+      <div class="etapa">
+        <b>2 &middot; Sensor</b>
+        <span>Câmera de bordo, apontada para baixo, gravando ou transmitindo ao vivo.</span>
+      </div>
+      <div class="etapa">
+        <b>3 &middot; Processamento</b>
+        <span>Uma janela varre o quadro e o modelo classifica cada recorte, no próprio navegador.</span>
+      </div>
+      <div class="etapa">
+        <b>4 &middot; Atuador</b>
+        <span>Confirmado o gesto por 1,5 s, a busca para e a posição é registrada.</span>
+      </div>
+      <div class="etapa">
+        <b>5 &middot; Feedback</b>
+        <span>A base recebe confiança, instante, posição no quadro e o recorte que decidiu.</span>
+      </div>
+    </div>
+    <div class="duas" style="margin-top:24px">
+      <div>
+        <div class="cartao">
+          <h3>Captura e preparo dos dados</h3>
+          <p><b>DJI Flip</b> para os voos, com a altura lida da telemetria gravada dentro do próprio MP4.
+          <b>Python</b> com ffmpeg, OpenCV e um detector de pessoas para recortar os quadros de treino.</p>
+        </div>
+      </div>
+      <div>
+        <div class="cartao">
+          <h3>Reconhecimento e interface</h3>
+          <p><b>Teachable Machine</b> para treinar o classificador de imagem e <b>TensorFlow.js</b> para executá-lo no navegador.
+          Interface própria em HTML, CSS e JavaScript. <b>MediaMTX</b> converte o RTMP do drone em WebRTC.</p>
+        </div>
+      </div>
+    </div>
+    <p class="sec" style="margin-top:20px">A pessoa não configura nada, não confirma nada e não recebe retorno na tela. Todo o custo da interação ficou do lado do sistema, que é o ponto da proposta.</p>
+    <div class="rodape"><span>ResgatAr</span><span>04 / 13</span></div>
+  </section>
+
+  <!-- ============ 2. STORYBOARD ============ -->
+  <section class="slide">
+    <div class="topo"></div>
+    <div class="etiqueta">05 &middot; Storyboard, momento 1</div>
+    <h2>Contexto e <em>intenção</em></h2>
+    <div class="duas larga-dir">
+      <div>
+        <p><b>Onde ela está:</b> caída num ponto qualquer da área de busca, há horas, sem conseguir andar até um lugar visível.</p>
+        <p><b>O que ela quer:</b> ser vista. Ela escuta o zumbido do drone se aproximando e sabe que tem poucos segundos de janela.</p>
+        <p class="sec">Do alto, ela é um vulto de poucos pixels no meio do terreno. Nenhum operador consegue garantir que vai reparar nesse ponto a cada quadro de uma rota de 27 quilômetros.</p>
+        <div class="passos">
+          <div class="aqui">Contexto</div>
+          <div class="aqui">Intenção</div>
+          <div>Ação</div>
+          <div>Interpretação</div>
+          <div>Resposta</div>
+        </div>
+      </div>
+      <figure>
+        <div class="cena">
+          <img src="img/contexto.jpg" alt="Pessoa vista de cima, pequena no terreno" />
+          <div class="janela fraca" style="left:33.5%; top:43.6%; width:11.9%"></div>
+        </div>
+        <figcaption>Drone a 33 m, quadro real do voo de captura.</figcaption>
+      </figure>
+    </div>
+    <div class="rodape"><span>ResgatAr</span><span>05 / 13</span></div>
+  </section>
+
+  <section class="slide">
+    <div class="topo"></div>
+    <div class="etiqueta">06 &middot; Storyboard, momento 2</div>
+    <h2>A <em>ação</em>: ela abre os braços</h2>
+    <div class="duas larga-dir">
+      <div>
+        <p><b>O que ela faz:</b> estende os braços na horizontal e segura a postura, olhando para cima.</p>
+        <p><b>Por que funciona:</b> é o gesto mais barato que existe em termos de esforço, não depende de voz nem de equipamento, e é justamente o que ganha mais área quando visto da vertical.</p>
+        <p class="sec">Ela não precisa saber nada sobre o sistema. Não há menu, não há confirmação, não há erro possível de digitação. A instrução cabe em uma frase de campanha pública: se um drone se aproximar, abra os braços.</p>
+        <div class="passos">
+          <div>Contexto</div>
+          <div>Intenção</div>
+          <div class="aqui">Ação</div>
+          <div>Interpretação</div>
+          <div>Resposta</div>
+        </div>
+      </div>
+      <figure>
+        <div class="cena">
+          <img src="img/acao.jpg" alt="Pessoa de braços abertos vista de cima" />
+          <div class="janela fraca" style="left:38.4%; top:52.9%; width:27.8%"></div>
+        </div>
+        <figcaption>Mesmo voo, drone a 14 m. A envergadura aberta passa a dominar o recorte.</figcaption>
+      </figure>
+    </div>
+    <div class="rodape"><span>ResgatAr</span><span>06 / 13</span></div>
+  </section>
+
+  <section class="slide">
+    <div class="topo"></div>
+    <div class="etiqueta">07 &middot; Storyboard, momento 3</div>
+    <h2>Como o sistema <em>interpreta</em></h2>
+    <div class="duas larga-dir">
+      <div>
+        <div class="estado-caixa">
+          <b>Procurando</b>
+          <span>varrendo o quadro, 98 posições</span>
+        </div>
+        <p>A janela laranja é exatamente o que o classificador recebe: um recorte de 224 por 224 pixels. Ela percorre o quadro em grade, com passo de meia janela.</p>
+        <p class="sec">Quando alguma posição passa de 50 por cento de confiança, a varredura para e a janela trava ali, passando a acompanhar a pessoa a cada ciclo, como o gimbal faria no drone real.</p>
+        <div class="barra"><i style="width:22%"></i></div>
+        <p class="mono dim" style="font-size:12px; margin:0">socorro: 22%</p>
+        <div class="passos">
+          <div>Contexto</div>
+          <div>Intenção</div>
+          <div>Ação</div>
+          <div class="aqui">Interpretação</div>
+          <div>Resposta</div>
+        </div>
+      </div>
+      <figure>
+        <div class="cena">
+          <img src="img/acao.jpg" alt="Quadro aéreo com a janela de varredura percorrendo a imagem" />
+          <div class="janela fraca" style="left:5%; top:6%; width:27.8%"></div>
+          <div class="janela fraca" style="left:19%; top:6%; width:27.8%"></div>
+          <div class="janela fraca" style="left:33%; top:6%; width:27.8%"></div>
+          <div class="janela" style="left:47%; top:6%; width:27.8%"></div>
+          <div class="marcador" style="left:47%; top:0">janela do classificador</div>
+        </div>
+        <figcaption>A varredura em grade, ainda longe da pessoa.</figcaption>
+      </figure>
+    </div>
+    <div class="rodape"><span>ResgatAr</span><span>07 / 13</span></div>
+  </section>
+
+  <section class="slide">
+    <div class="topo"></div>
+    <div class="etiqueta">08 &middot; Storyboard, momento 4</div>
+    <h2>A <em>resposta</em> do sistema</h2>
+    <div class="duas larga-dir">
+      <div>
+        <div class="estado-caixa ok">
+          <b>Localizado</b>
+          <span>pessoa pedindo socorro; missão encerrada</span>
+        </div>
+        <p>A confiança precisa ficar acima de 85 por cento por 1,5 segundo contínuo. Só então o sistema declara a localização, para a busca e congela o quadro.</p>
+        <p class="sec">A equipe recebe a confiança sustentada, o instante, a posição no quadro e o recorte exato que o modelo classificou. O recorte importa: é o que permite a um humano conferir a decisão da máquina em um segundo.</p>
+        <div class="barra"><i style="width:97%"></i></div>
+        <p class="mono" style="font-size:12px; margin:0; color:var(--orange)">socorro: 97%</p>
+        <div class="passos">
+          <div>Contexto</div>
+          <div>Intenção</div>
+          <div>Ação</div>
+          <div>Interpretação</div>
+          <div class="aqui">Resposta</div>
+        </div>
+      </div>
+      <figure>
+        <div class="cena">
+          <img src="img/acao.jpg" alt="Quadro aéreo com a janela travada sobre a pessoa de braços abertos" />
+          <div class="janela travada" style="left:38.4%; top:52.9%; width:27.8%"></div>
+          <div class="marcador" style="left:38.4%; top:46.5%">localizado</div>
+        </div>
+        <figcaption>Janela travada na pessoa, com o resto do quadro escurecido.</figcaption>
+      </figure>
+    </div>
+    <div class="rodape"><span>ResgatAr</span><span>08 / 13</span></div>
+  </section>
+
+  <!-- ============ 3. PROTÓTIPO ============ -->
+  <section class="slide">
+    <div class="topo"></div>
+    <div class="etiqueta">09 &middot; Protótipo, a decisão de projeto</div>
+    <h2>A conta que mudou<br />o projeto inteiro</h2>
+    <div class="duas">
+      <div>
+        <p>A concepção inicial era reconhecer o gesto direto na altura de varredura. Uma conta de óptica derrubou a ideia antes da primeira linha de código.</p>
+        <p class="sec">Com campo de visão de 84 graus e sensor de 1920 pixels, a 100 metros os braços abertos somam 18 pixels de ponta a ponta, e cada braço tem 1,1 pixel de espessura. Nenhum volume de dados resolve isso: a informação não chega ao sensor.</p>
+        <div class="cartao acende" style="margin-top:14px">
+          <h3>Consequência</h3>
+          <p>A operação virou dois estágios: detectar a pessoa a 100 m, descer para 25 m e só então classificar o gesto. <b>Esta entrega implementa e testa o segundo estágio</b>, que é onde mora a interação.</p>
+        </div>
+      </div>
+      <div>
+        <table>
+          <tr><th>Altura</th><th>Envergadura</th><th>Espessura</th><th>Classificável</th></tr>
+          <tr><td>100 m</td><td>18 px</td><td>1,1 px</td><td class="nao">não</td></tr>
+          <tr><td>50 m</td><td>36 px</td><td>2,1 px</td><td class="nao">não</td></tr>
+          <tr class="destaque"><td>25 m</td><td>72 px</td><td>4,3 px</td><td class="sim">sim</td></tr>
+          <tr><td>15 m</td><td>121 px</td><td>7,1 px</td><td class="sim">sim</td></tr>
+        </table>
+        <p class="sec mono" style="font-size:12px; margin-top:12px">Pessoa de 1,70 m de envergadura, braço de 10 cm de espessura.</p>
+        <div class="cartao" style="margin-top:18px">
+          <h3>E se trocar a câmera?</h3>
+          <p>Mesmo em 4K, a 100 metros o braço fica com 2,1 pixels. O limite é geométrico, não de equipamento.</p>
+        </div>
+      </div>
+    </div>
+    <div class="rodape"><span>ResgatAr</span><span>09 / 13</span></div>
+  </section>
+
+  <section class="slide">
+    <div class="topo"></div>
+    <div class="etiqueta">10 &middot; Protótipo, dados e viés</div>
+    <h2>Treinamos com<br />voos <em>nossos</em></h2>
+    <div class="duas larga-esq">
+      <div>
+        <ul>
+          <li><b>Cinco voos no campus,</b> <span>seis minutos em 4K, entre 13 e 37 metros, com o drone orbitando para variar ângulo e escala.</span></li>
+          <li><b>Roteiro definido antes:</b> <span>o T, depois em pé, caminhando, sentado, deitado, um braço só, aceno, e terreno vazio.</span></li>
+          <li><b>Recorte de tamanho fixo no solo,</b> <span>cerca de 6 metros. Se o recorte acompanhasse o vulto, o modelo aprenderia escala em vez de postura.</span></li>
+          <li><b>O viés foi medido.</b> <span>Um classificador que só vê cor e brilho acertava 90 por cento, porque o voo do gesto saiu mais claro. Com ganho de brilho aleatório nas duas classes, caiu para 75.</span></li>
+        </ul>
+      </div>
+      <div>
+        <div class="numeros">
+          <div class="numero"><b>214</b><span>recortes<br />socorro</span></div>
+          <div class="numero"><b>331</b><span>recortes<br />sem socorro</span></div>
+          <div class="numero"><b>90&rarr;75</b><span>atalho de cor<br />depois da correção</span></div>
+        </div>
+        <div class="cartao" style="margin-top:18px">
+          <h3>Por que isso importa</h3>
+          <p>Sem esse cuidado o modelo mostraria acurácia alta separando o cenário do voo, e falharia no primeiro terreno novo.</p>
+        </div>
+      </div>
+    </div>
+    <figure style="margin-top:16px">
+      <img src="img/dataset.jpg" alt="Amostra das duas classes do conjunto de treino" />
+      <figcaption>Acima da linha laranja, a classe <b>socorro</b>. Abaixo, <b>sem socorro</b>: as mesmas pessoas em outras posturas, a cena do voo sem a pessoa e terreno vazio.</figcaption>
+    </figure>
+    <div class="rodape"><span>ResgatAr</span><span>10 / 13</span></div>
+  </section>
+
+  <section class="slide">
+    <div class="topo"></div>
+    <div class="etiqueta">11 &middot; Protótipo, demonstração</div>
+    <h2>Funciona, e dá<br />para <em>conferir</em></h2>
+    <div class="duas">
+      <div>
+        <ul>
+          <li><b>Sobre o voo com o gesto:</b> <span>localizou entre 3,7 e 31 segundos de vídeo, com confiança sustentada de 90 a 100 por cento.</span></li>
+          <li><b>Com a janela sobre a pessoa:</b> <span>99 a 100 por cento. Deslocada 4 metros para o lado, cai a zero. O modelo responde à postura, não ao cenário.</span></li>
+          <li><b>Sobre o voo sem gesto</b> <span>(caminhando, um braço, agachado, deitado): o máximo encontrado em qualquer posição do quadro foi 13 por cento. Nunca travou.</span></li>
+          <li><b>Ao vivo:</b> <span>o mesmo fluxo rodou sobre a transmissão do drone via RTMP, localizando com 94 por cento.</span></li>
+        </ul>
+      </div>
+      <div>
+        <div class="numeros">
+          <div class="numero"><b>97%</b><span>confiança<br />sustentada</span></div>
+          <div class="numero"><b>1,5 s</b><span>de confirmação<br />exigida</span></div>
+          <div class="numero"><b>31 ms</b><span>por inferência<br />no navegador</span></div>
+        </div>
+        <div class="cartao" style="margin-top:16px">
+          <h3>Tudo local, nada em servidor</h3>
+          <p>A inferência roda no navegador com TensorFlow.js. Nenhum quadro de vídeo sai da máquina, que é a condição de operação em campo sem conectividade.</p>
+        </div>
+        <p style="margin-top:16px">
+          <a class="link-grande" href="../busca.html">Demonstração ao vivo &rarr;</a>
+        </p>
+      </div>
+    </div>
+    <p class="sec" style="margin-top:20px">O critério é o mesmo em qualquer fonte: 85 por cento de confiança sustentados por 1,5 segundo. Abaixo disso o sistema registra a rejeição e continua procurando, porque avisar errado custa uma equipe deslocada à toa.</p>
+    <div class="rodape"><span>ResgatAr</span><span>11 / 13</span></div>
+  </section>
+
+  <section class="slide">
+    <div class="topo"></div>
+    <div class="etiqueta">12 &middot; Protótipo, limites e continuação</div>
+    <h2>O que ainda<br />não está provado</h2>
+    <div class="duas">
+      <div>
+        <div class="cartao" style="margin-bottom:12px">
+          <h3>Limites honestos</h3>
+          <p>Uma pessoa fez o gesto, de roupa escura, num piso só. Os trechos de teste vieram dos mesmos voos do treino, então isso prova o fluxo, não a generalização. A transmissão ao vivo esbarra no rádio do controle, que divide antena com o enlace do drone.</p>
+        </div>
+        <p class="sec">A varredura em grade leva cerca de 10 segundos por passada completa, e nesse intervalo alguém pode cruzar o quadro sem ser avaliado.</p>
+      </div>
+      <div>
+        <div class="cartao acende">
+          <h3>Continuação</h3>
+          <p>Repetir o roteiro com <b>outras pessoas, roupas e terrenos</b>, e então treinar com um grupo e testar com outro.</p>
+        </div>
+        <ul style="margin-top:14px">
+          <li><b>Detector de pessoa antes do classificador,</b> <span>para apontar onde olhar em vez de varrer às cegas.</span></li>
+          <li><b>Ler a altura da telemetria no navegador,</b> <span>dimensionando a janela sozinha.</span></li>
+          <li><b>Separar duas saídas:</b> <span>pessoa encontrada e pedido de socorro confirmado. Quem está deitado e imóvel é justamente quem mais precisa.</span></li>
+          <li><b>Medir em uma placa real,</b> <span>com o modelo exportado em TensorFlow Lite.</span></li>
+        </ul>
+      </div>
+    </div>
+    <div class="rodape"><span>ResgatAr</span><span>12 / 13</span></div>
+  </section>
+
+  <!-- ============ FECHO ============ -->
+  <section class="slide capa" style="background:linear-gradient(90deg, rgba(11,12,10,0.97) 46%, rgba(11,12,10,0.6) 100%), url('img/gesto-comparacao.jpg') center/cover no-repeat">
+    <img class="marca" src="../logo-horizontal-white.png" alt="ResgatAr" />
+    <h1>Uma pessoa abre<br />os braços. <em>Só isso.</em></h1>
+    <p class="sub">A interação mais simples possível do lado de quem precisa, e todo o trabalho do lado da máquina.</p>
+    <div class="ficha">
+      Protótipo e dados: <a class="discreto" href="https://github.com/jeferson-scheibler/resgatar">github.com/jeferson-scheibler/resgatar</a><br />
+      Demonstração: <a class="discreto" href="../busca.html">busca.html</a>
+    </div>
+    <div class="rodape"><span>ResgatAr</span><span>13 / 13</span></div>
+  </section>
+
+</div>
+
+<div class="progresso" id="progresso"></div>
+<div class="ajuda">setas ou clique &middot; F tela cheia &middot; Ctrl+P gera PDF</div>
+
+<script>
+  const slides = [...document.querySelectorAll(".slide")];
+  const palco = document.getElementById("palco");
+  const progresso = document.getElementById("progresso");
+  let atual = 0;
+
+  function mostrar(i) {
+    atual = Math.min(Math.max(i, 0), slides.length - 1);
+    slides.forEach((s, n) => s.classList.toggle("ativo", n === atual));
+    progresso.style.width = `${((atual + 1) / slides.length) * 100}%`;
+    location.hash = atual ? `#${atual + 1}` : "";
+  }
+
+  // o palco tem tamanho fixo de 1280x720 e é escalado para caber na janela,
+  // assim o layout não muda entre o notebook e o projetor
+  function ajustar() {
+    const k = Math.min(innerWidth / 1280, innerHeight / 720);
+    palco.style.transform = `scale(${k})`;
+  }
+
+  addEventListener("keydown", (e) => {
+    if (["ArrowRight", "ArrowDown", "PageDown", " ", "Enter"].includes(e.key)) { mostrar(atual + 1); e.preventDefault(); }
+    else if (["ArrowLeft", "ArrowUp", "PageUp", "Backspace"].includes(e.key)) { mostrar(atual - 1); e.preventDefault(); }
+    else if (e.key === "Home") mostrar(0);
+    else if (e.key === "End") mostrar(slides.length - 1);
+    else if (e.key.toLowerCase() === "f") {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen().catch(() => {});
+    }
+  });
+
+  addEventListener("click", (e) => {
+    if (e.target.closest("a")) return;
+    mostrar(atual + (e.clientX < innerWidth * 0.25 ? -1 : 1));
+  });
+
+  let toqueX = null;
+  addEventListener("touchstart", (e) => { toqueX = e.touches[0].clientX; }, { passive: true });
+  addEventListener("touchend", (e) => {
+    if (toqueX === null) return;
+    const d = e.changedTouches[0].clientX - toqueX;
+    if (Math.abs(d) > 40) mostrar(atual + (d < 0 ? 1 : -1));
+    toqueX = null;
+  }, { passive: true });
+
+  addEventListener("resize", ajustar);
+  ajustar();
+  mostrar(Number(location.hash.slice(1)) - 1 || 0);
+</script>
+</body>
+</html>
